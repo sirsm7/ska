@@ -218,7 +218,7 @@
         // Supabase Configuration from "Data Supabase.docx"
         const SUPABASE_URL = 'https://app.tech4ag.my';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzYzMzczNjQ1LCJleHAiOjIwNzg3MzM2NDV9.vZOedqJzUn01PjwfaQp7VvRzSm4aRMr21QblPDK8AoY';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // Global State
         let allRecipients = [];
@@ -313,7 +313,7 @@
             tableLoading.classList.remove('hidden');
 
             try {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('recipients')
                     .select('*')
                     .order('sekolah', { ascending: true })
@@ -491,7 +491,7 @@
                         const chunkSize = 500;
                         for (let i = 0; i < mappedData.length; i += chunkSize) {
                             const chunk = mappedData.slice(i, i + chunkSize);
-                            const { error } = await supabase.from('recipients').insert(chunk);
+                            const { error } = await supabaseClient.from('recipients').insert(chunk);
                             if (error) throw error;
                         }
 
@@ -520,7 +520,7 @@
             closeConfirmModal();
             showProcess('Memadam semua rekod...');
             try {
-                const { error } = await supabase.rpc('truncate_recipients');
+                const { error } = await supabaseClient.rpc('truncate_recipients');
                 if (error) throw error;
                 
                 hideProcess();
