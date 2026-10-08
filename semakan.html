@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semakan - Kehadiran Anugerah</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .loader {
+            border-top-color: #3b82f6;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Custom scrollbar for table container */
+        .table-container::-webkit-scrollbar {
+            height: 8px;
+        }
+        .table-container::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans min-h-screen">
+
+    <!-- Navbar -->
+    <nav class="bg-blue-600 text-white shadow-md">
+        <div class="max-w-6xl mx-auto px-4 flex justify-between items-center h-16">
+            <h1 class="text-xl font-bold hidden sm:block">Semakan Kehadiran</h1>
+            <h1 class="text-xl font-bold sm:hidden">Semakan</h1>
+            <div class="flex space-x-4">
+                <a href="index.html" class="hover:text-gray-200 transition">Carian</a>
+                <a href="semakan.html" class="font-semibold underline">Semakan</a>
+                <a href="admin.html" class="hover:text-gray-200 transition">Admin</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 sm:mb-0">Senarai Kehadiran</h2>
+            <button onclick="fetchData()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded shadow-sm hover:bg-gray-50 flex items-center transition">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Segar Semula
+            </button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex bg-white shadow rounded-lg overflow-hidden mb-6 border border-gray-200">
+            <button id="tabBelum" onclick="switchTab('belum')" class="flex-1 py-4 text-center font-bold text-lg bg-blue-50 text-blue-700 border-b-4 border-blue-600 transition">
+                BELUM HADIR
+            </button>
+            <button id="tabTelah" onclick="switchTab('telah')" class="flex-1 py-4 text-center font-bold text-lg text-gray-500 hover:bg-gray-50 border-b-4 border-transparent transition">
+                TELAH HADIR
+            </button>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="hidden flex justify-center py-12">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <span class="block sm:inline" id="errorText">Ralat berlaku semasa memuat turun data.</span>
+        </div>
+
+        <!-- Data Table / List -->
+        <div class="bg-white shadow rounded-lg overflow-hidden border border-gray-200">
+            <div class="overflow-x-auto table-container">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bil / Nama</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sekolah / Kategori</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Masa / Wakil</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Data will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Empty State -->
+            <div id="emptyState" class="hidden py-12 text-center">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">Tiada rekod</h3>
+                <p class="mt-1 text-sm text-gray-500">Tiada penerima dalam kategori ini buat masa ini.</p>
+            </div>
+        </div>
+        
+        <!-- Summary Count -->
+        <div class="mt-4 text-right text-gray-600 font-medium">
+            Jumlah rekod dipaparkan: <span id="recordCount">0</span>
+        </div>
+
+    </main>
+
+    <script>
+        // Supabase Initialization
+        const SUPABASE_URL = 'https://app.tech4ag.my';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzYzMzczNjQ1LCJleHAiOjIwNzg3MzM2NDV9.vZOedqJzUn01PjwfaQp7VvRzSm4aRMr21QblPDK8AoY';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // State
+        let currentTab = 'belum'; // 'belum' | 'telah'
+
+        // DOM Elements
+        const tabBelum = document.getElementById('tabBelum');
+        const tabTelah = document.getElementById('tabTelah');
+        const tableBody = document.getElementById('tableBody');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const emptyState = document.getElementById('emptyState');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+        const recordCount = document.getElementById('recordCount');
+
+        // Helper: Format Time
+        function formatTime(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleTimeString('en-MY', { hour: 'numeric', minute: '2-digit', hour12: true });
+        }
+
+        // Helper: Escape HTML to prevent XSS
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                 .toString()
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+
+        // Switch Tab UI
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            if (tab === 'belum') {
+                tabBelum.classList.add('bg-blue-50', 'text-blue-700', 'border-blue-600');
+                tabBelum.classList.remove('text-gray-500', 'border-transparent', 'hover:bg-gray-50');
+                
+                tabTelah.classList.remove('bg-blue-50', 'text-blue-700', 'border-blue-600');
+                tabTelah.classList.add('text-gray-500', 'border-transparent', 'hover:bg-gray-50');
+            } else {
+                tabTelah.classList.add('bg-blue-50', 'text-blue-700', 'border-blue-600');
+                tabTelah.classList.remove('text-gray-500', 'border-transparent', 'hover:bg-gray-50');
+                
+                tabBelum.classList.remove('bg-blue-50', 'text-blue-700', 'border-blue-600');
+                tabBelum.classList.add('text-gray-500', 'border-transparent', 'hover:bg-gray-50');
+            }
+            
+            fetchData();
+        }
+
+        // Display Error
+        function showError(msg) {
+            errorText.textContent = msg;
+            errorMessage.classList.remove('hidden');
+            setTimeout(() => errorMessage.classList.add('hidden'), 5000);
+        }
+
+        // Fetch Data from Supabase
+        async function fetchData() {
+            loadingIndicator.classList.remove('hidden');
+            tableBody.innerHTML = '';
+            emptyState.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            tableBody.parentElement.classList.add('hidden');
+            recordCount.textContent = '0';
+
+            try {
+                let query = supabase.from('recipients').select('*');
+
+                if (currentTab === 'belum') {
+                    // Fetch all that are NOT 'HADIR' (includes 'BELUM HADIR' and 'TIDAK HADIR')
+                    query = query.neq('attendance_status', 'HADIR').order('sekolah').order('bil');
+                } else {
+                    // Fetch only 'HADIR' (includes wakil as they are also marked HADIR)
+                    query = query.eq('attendance_status', 'HADIR').order('attendance_time', { ascending: false });
+                }
+
+                const { data, error } = await query;
+
+                if (error) throw error;
+
+                renderData(data);
+
+            } catch (error) {
+                console.error("Fetch Ralat:", error);
+                showError("Gagal memuat turun data. Sila semak sambungan internet anda.");
+            } finally {
+                loadingIndicator.classList.add('hidden');
+            }
+        }
+
+        // Render Data into Table
+        function renderData(data) {
+            recordCount.textContent = data.length;
+
+            if (!data || data.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            tableBody.parentElement.classList.remove('hidden');
+            let html = '';
+
+            data.forEach((row) => {
+                let statusBadge = '';
+                let timeText = '-';
+                
+                // Status Badge Logic
+                if (row.attendance_status === 'HADIR') {
+                    if (row.attendance_type === 'WAKIL') {
+                        statusBadge = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">Wakil Hadir</span>`;
+                    } else {
+                        statusBadge = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Hadir</span>`;
+                    }
+                    timeText = `<span class="text-sm text-gray-900 font-medium">${formatTime(row.attendance_time)}</span>`;
+                    if (row.attendance_type === 'WAKIL' && row.representative_name) {
+                         timeText += `<div class="text-xs text-gray-500 mt-1">Wakil: <span class="font-semibold">${escapeHtml(row.representative_name)}</span></div>`;
+                    }
+                } else if (row.attendance_status === 'TIDAK HADIR') {
+                    statusBadge = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Tidak Hadir</span>`;
+                } else {
+                    statusBadge = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Belum Hadir</span>`;
+                }
+
+                html += `
+                    <tr class="hover:bg-gray-50 transition duration-150">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center border border-gray-300">
+                                    <span class="text-gray-600 font-mono text-sm font-bold">${escapeHtml(row.bil)}</span>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-bold text-gray-900 whitespace-normal min-w-[150px] max-w-[250px] leading-snug">${escapeHtml(row.nama)}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-sm text-gray-900 font-medium">${escapeHtml(row.sekolah)}</div>
+                            <div class="text-sm text-gray-500">${escapeHtml(row.kategori)}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            ${statusBadge}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${timeText}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tableBody.innerHTML = html;
+        }
+
+        // Initial fetch on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchData();
+        });
+
+    </script>
+</body>
+</html>
