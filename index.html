@@ -51,8 +51,8 @@
             <p class="text-sm text-gray-500 mb-4">Cari mengikut No. Bil, Nama, atau Nama Sekolah.</p>
             <div class="flex">
                 <input type="text" id="searchInput" 
-                    class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg" 
-                    placeholder="Mula menaip... (Contoh: 25, Ahmad, SK Seri Melaka)"
+                    class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg uppercase" 
+                    placeholder="MULA MENAIP... (CONTOH: 25, AHMAD, SK SERI MELAKA)"
                     autocomplete="off">
             </div>
         </div>
@@ -83,7 +83,7 @@
                     <p class="text-sm text-gray-500 mb-2">Penerima asal: <span id="modalRecipientName" class="font-bold text-gray-800"></span></p>
                     <input type="hidden" id="modalRecipientId">
                     <input type="hidden" id="modalRecipientSekolah">
-                    <input type="text" id="wakilNameInput" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="Masukkan nama penuh wakil" required>
+                    <input type="text" id="wakilNameInput" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 uppercase" placeholder="MASUKKAN NAMA PENUH WAKIL" required>
                 </div>
                 <div class="items-center px-4 py-3 flex justify-between gap-2">
                     <button id="cancelWakilBtn" class="px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-300">
@@ -124,7 +124,10 @@
         let typingTimer;
         const doneTypingInterval = 300; // 300 milisaat masa menunggu
 
-        searchInput.addEventListener('input', function () {
+        searchInput.addEventListener('input', function (e) {
+            // Force uppercase
+            e.target.value = e.target.value.toUpperCase();
+
             clearTimeout(typingTimer);
             if (searchInput.value) {
                 typingTimer = setTimeout(performSearch, doneTypingInterval);
@@ -134,6 +137,11 @@
             }
         });
         
+        wakilNameInput.addEventListener('input', function (e) {
+            // Force uppercase for representative name
+            e.target.value = e.target.value.toUpperCase();
+        });
+
         cancelWakilBtn.addEventListener('click', closeWakilModal);
         saveWakilBtn.addEventListener('click', saveWakil);
 
