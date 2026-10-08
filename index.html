@@ -93,7 +93,7 @@
         // Supabase Initialization
         const SUPABASE_URL = 'https://app.tech4ag.my';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzYzMzczNjQ1LCJleHAiOjIwNzg3MzM2NDV9.vZOedqJzUn01PjwfaQp7VvRzSm4aRMr21QblPDK8AoY';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // DOM Elements
         const searchInput = document.getElementById('searchInput');
@@ -148,7 +148,7 @@
             errorMessage.classList.add('hidden');
 
             try {
-                let { data: recipients, error } = await supabase
+                let { data: recipients, error } = await supabaseClient
                     .from('recipients')
                     .select('*')
                     .or(`bil.eq.${isNaN(parseInt(query)) ? -1 : parseInt(query)},nama.ilike.%${query}%,sekolah.ilike.%${query}%`)
@@ -268,7 +268,7 @@
             const currentTime = new Date().toISOString();
 
             try {
-                const { error } = await supabase
+                const { error } = await supabaseClient
                     .from('recipients')
                     .update({ 
                         attendance_status: 'HADIR',
@@ -319,7 +319,7 @@
             const currentTime = new Date().toISOString();
 
             try {
-                const { error } = await supabase
+                const { error } = await supabaseClient
                     .from('recipients')
                     .update({ 
                         attendance_status: 'HADIR',

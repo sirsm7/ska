@@ -110,7 +110,7 @@
         // Supabase Initialization
         const SUPABASE_URL = 'https://app.tech4ag.my';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzYzMzczNjQ1LCJleHAiOjIwNzg3MzM2NDV9.vZOedqJzUn01PjwfaQp7VvRzSm4aRMr21QblPDK8AoY';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // State
         let currentTab = 'belum'; // 'belum' | 'telah'
@@ -182,7 +182,7 @@
             recordCount.textContent = '0';
 
             try {
-                let query = supabase.from('recipients').select('*');
+                let query = supabaseClient.from('recipients').select('*');
 
                 if (currentTab === 'belum') {
                     // Fetch all that are NOT 'HADIR' (includes 'BELUM HADIR' and 'TIDAK HADIR')
