@@ -12,9 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
+        body { font-family: 'Inter', sans-serif; }
         .loader {
             border-top-color: #3b82f6;
             -webkit-animation: spinner 1.5s linear infinite;
@@ -24,16 +22,12 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .table-container::-webkit-scrollbar {
-            height: 8px;
-        }
+        .table-container::-webkit-scrollbar { height: 8px; }
         .table-container::-webkit-scrollbar-thumb {
             background-color: #cbd5e1;
             border-radius: 4px;
         }
-        .fade-in {
-            animation: fadeIn 0.3s ease-in-out;
-        }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -42,7 +36,6 @@
 </head>
 <body class="bg-gray-100 font-sans min-h-screen text-gray-800">
 
-    <!-- Ruang Log Masuk (Overlay) -->
     <div id="loginScreen" class="fixed inset-0 bg-gray-900 bg-opacity-95 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl p-8 max-w-sm w-full fade-in">
             <div class="text-center mb-6">
@@ -60,9 +53,7 @@
         </div>
     </div>
 
-    <!-- Halaman Admin Utama (Tersembunyi pada mulanya) -->
     <div id="mainContent" class="hidden">
-        <!-- Navbar -->
         <nav class="bg-blue-600 text-white shadow-md">
             <div class="max-w-7xl mx-auto px-4 flex justify-between items-center h-16">
                 <div class="flex items-center gap-3">
@@ -70,17 +61,16 @@
                     <h1 class="text-xl font-bold tracking-tight hidden sm:block">Panel Pentadbir</h1>
                     <h1 class="text-xl font-bold tracking-tight sm:hidden">Admin</h1>
                 </div>
-                <div class="flex space-x-4 text-sm sm:text-base font-medium">
+                <div class="flex space-x-4 text-sm sm:text-base font-medium items-center">
                     <a href="index.html" class="hover:text-blue-200 transition-colors">Carian</a>
                     <a href="semakan.html" class="hover:text-blue-200 transition-colors">Semakan</a>
-                    <a href="admin.html" class="font-semibold underline underline-offset-4">Admin</a>
+                    <a href="admin.html" class="font-semibold underline underline-offset-4 mr-2">Admin</a>
+                    <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-bold transition-colors border border-red-700">Log Keluar</button>
                 </div>
             </div>
         </nav>
 
         <main class="max-w-7xl mx-auto px-4 py-8">
-            
-            <!-- Header & Pengurusan Data -->
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>
                     <h2 class="text-2xl font-bold text-gray-800">Dashboard Kehadiran</h2>
@@ -106,7 +96,6 @@
                 </div>
             </div>
 
-            <!-- Statistik -->
             <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
                 <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
                     <p class="text-sm text-gray-500 font-medium uppercase">Jumlah Penerima</p>
@@ -132,7 +121,6 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
-                <!-- Rumusan Wakil (1 Column) -->
                 <div class="lg:col-span-1">
                     <div class="bg-white rounded-lg shadow border border-gray-200 h-full flex flex-col">
                         <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
@@ -142,14 +130,12 @@
                         </div>
                         <div class="p-0 overflow-y-auto max-h-[600px] flex-1">
                             <ul id="wakilList" class="divide-y divide-gray-200">
-                                <!-- Wakil items injected here -->
                                 <li class="p-4 text-center text-gray-500 text-sm" id="wakilEmpty">Tiada rekod wakil.</li>
                             </ul>
                         </div>
                     </div>
                 </div>
 
-                <!-- Laporan Keseluruhan (2 Columns) -->
                 <div class="lg:col-span-2">
                     <div class="bg-white rounded-lg shadow border border-gray-200 flex flex-col h-full">
                         <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg flex justify-between items-center">
@@ -167,15 +153,13 @@
                                     <tr>
                                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Penerima</th>
                                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sekolah / Kategori</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status & Maklumat</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status & Tindakan</th>
                                     </tr>
                                 </thead>
                                 <tbody id="reportTableBody" class="bg-white divide-y divide-gray-200">
-                                    <!-- Full report injected here -->
                                 </tbody>
                             </table>
                         </div>
-                        <!-- Loading State for table -->
                         <div id="tableLoading" class="hidden py-12 flex justify-center">
                             <div class="loader ease-linear rounded-full border-4 border-t-4 border-blue-500 h-10 w-10"></div>
                         </div>
@@ -186,9 +170,6 @@
         </main>
     </div>
 
-    <!-- Custom Modals (Since alert/confirm are forbidden) -->
-    
-    <!-- Info/Message Modal -->
     <div id="msgModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full fade-in">
             <h3 class="text-lg font-bold text-gray-900 mb-2" id="msgTitle">Maklumat</h3>
@@ -199,7 +180,6 @@
         </div>
     </div>
 
-    <!-- Confirm Modal -->
     <div id="confirmModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full fade-in">
             <div class="flex items-center mb-4">
@@ -216,7 +196,23 @@
         </div>
     </div>
 
-    <!-- Processing Modal -->
+    <div id="confirmResetModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full fade-in">
+            <div class="flex items-center mb-4">
+                <div class="bg-yellow-100 rounded-full p-2 mr-3">
+                    <svg class="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900">Reset Status Kehadiran</h3>
+            </div>
+            <p class="text-gray-600 mb-6 text-sm">Anda pasti mahu reset status <span id="resetTargetName" class="font-bold"></span> kepada 'Belum Hadir'? Maklumat waktu dan wakil akan dipadamkan.</p>
+            <input type="hidden" id="resetTargetId">
+            <div class="flex justify-end gap-3">
+                <button onclick="closeResetModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded">Batal</button>
+                <button onclick="executeResetData()" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded" id="btnConfirmReset">Reset Status</button>
+            </div>
+        </div>
+    </div>
+
     <div id="processModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[70] flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full text-center flex flex-col items-center">
             <div class="loader ease-linear rounded-full border-4 border-t-4 border-blue-500 h-12 w-12 mb-4"></div>
@@ -225,44 +221,54 @@
     </div>
 
     <script>
-        // Supabase Configuration from "Data Supabase.docx"
         const SUPABASE_URL = 'https://app.tech4ag.my';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzYzMzczNjQ1LCJleHAiOjIwNzg3MzM2NDV9.vZOedqJzUn01PjwfaQp7VvRzSm4aRMr21QblPDK8AoY';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Global State
         let allRecipients = [];
 
-        // DOM Elements - Auth
         const loginScreen = document.getElementById('loginScreen');
         const mainContent = document.getElementById('mainContent');
         const passwordInput = document.getElementById('passwordInput');
         const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
         const loginError = document.getElementById('loginError');
 
-        // DOM Elements - Modals
         const msgModal = document.getElementById('msgModal');
         const msgTitle = document.getElementById('msgTitle');
         const msgBody = document.getElementById('msgBody');
         const confirmModal = document.getElementById('confirmModal');
+        const confirmResetModal = document.getElementById('confirmResetModal');
+        const resetTargetName = document.getElementById('resetTargetName');
+        const resetTargetId = document.getElementById('resetTargetId');
+        const btnConfirmReset = document.getElementById('btnConfirmReset');
         const processModal = document.getElementById('processModal');
         const processText = document.getElementById('processText');
 
-        // DOM Elements - Dashboard & Tables
         const filterStatus = document.getElementById('filterStatus');
         const tableLoading = document.getElementById('tableLoading');
         const reportTableBody = document.getElementById('reportTableBody');
         const wakilList = document.getElementById('wakilList');
         const wakilEmpty = document.getElementById('wakilEmpty');
 
-        // Stats
         const statTotal = document.getElementById('statTotal');
         const statHadir = document.getElementById('statHadir');
         const statWakil = document.getElementById('statWakil');
         const statTidakHadir = document.getElementById('statTidakHadir');
         const statBelum = document.getElementById('statBelum');
 
-        // Login Logic
+        function checkSession() {
+            if (localStorage.getItem('isAdminLoggedIn') === 'true') {
+                loginScreen.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+                fetchData();
+            } else {
+                loginScreen.classList.remove('hidden');
+                mainContent.classList.add('hidden');
+                passwordInput.value = '';
+            }
+        }
+
         loginBtn.addEventListener('click', handleLogin);
         passwordInput.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') handleLogin();
@@ -270,15 +276,21 @@
 
         function handleLogin() {
             if (passwordInput.value === 'ppdag@12345') {
-                loginScreen.classList.add('hidden');
-                mainContent.classList.remove('hidden');
-                fetchData();
+                localStorage.setItem('isAdminLoggedIn', 'true');
+                loginError.classList.add('hidden');
+                checkSession();
             } else {
                 loginError.classList.remove('hidden');
             }
         }
 
-        // Custom Modal Logic
+        logoutBtn.addEventListener('click', function() {
+            localStorage.removeItem('isAdminLoggedIn');
+            checkSession();
+        });
+
+        checkSession();
+
         function showMsg(title, msg) {
             msgTitle.textContent = title;
             msgBody.textContent = msg;
@@ -300,8 +312,47 @@
         function hideProcess() {
             processModal.classList.add('hidden');
         }
+        
+        function confirmReset(id, name) {
+            resetTargetId.value = id;
+            resetTargetName.textContent = name;
+            confirmResetModal.classList.remove('hidden');
+        }
+        function closeResetModal() {
+            confirmResetModal.classList.add('hidden');
+            btnConfirmReset.innerHTML = 'Reset Status';
+            btnConfirmReset.disabled = false;
+        }
 
-        // Helper functions
+        async function executeResetData() {
+            const id = resetTargetId.value;
+            btnConfirmReset.innerHTML = 'Memproses...';
+            btnConfirmReset.disabled = true;
+            
+            try {
+                const { error } = await supabaseClient
+                    .from('recipients')
+                    .update({
+                        attendance_status: 'BELUM HADIR',
+                        attendance_time: null,
+                        attendance_type: null,
+                        representative_name: null
+                    })
+                    .eq('id', id);
+
+                if (error) throw error;
+                
+                closeResetModal();
+                showMsg('Berjaya', 'Status kehadiran telah dikembalikan kepada Belum Hadir.');
+                fetchData(); 
+            } catch (error) {
+                console.error("Error reset:", error);
+                btnConfirmReset.innerHTML = 'Reset Status';
+                btnConfirmReset.disabled = false;
+                showMsg('Ralat', 'Gagal menetapkan semula status.');
+            }
+        }
+
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return unsafe.toString()
@@ -317,8 +368,9 @@
             return new Date(dateString).toLocaleTimeString('en-MY', { hour: 'numeric', minute: '2-digit', hour12: true });
         }
 
-        // Fetch Data from DB
         async function fetchData() {
+            if(localStorage.getItem('isAdminLoggedIn') !== 'true') return;
+
             reportTableBody.innerHTML = '';
             tableLoading.classList.remove('hidden');
 
@@ -341,7 +393,6 @@
             }
         }
 
-        // Calculate and Update Dashboard Stats
         function updateDashboard() {
             let total = allRecipients.length;
             let hadir = 0;
@@ -367,13 +418,11 @@
             statBelum.textContent = belum;
         }
 
-        // Render Tables based on filters
         filterStatus.addEventListener('change', renderTables);
 
         function renderTables() {
             const filterVal = filterStatus.value;
             
-            // Full Table Rendering
             const filteredData = filterVal === 'ALL' 
                 ? allRecipients 
                 : allRecipients.filter(r => r.attendance_status === filterVal);
@@ -382,8 +431,10 @@
             filteredData.forEach(row => {
                 let statusBadge = '';
                 let extraInfo = '';
+                let isModified = false;
                 
                 if (row.attendance_status === 'HADIR') {
+                    isModified = true;
                     if (row.attendance_type === 'WAKIL') {
                         statusBadge = `<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">Wakil Hadir</span>`;
                         extraInfo = `<div class="text-xs text-gray-500 mt-1">Masa: ${formatTime(row.attendance_time)}<br/>Wakil: <span class="font-semibold text-gray-700">${escapeHtml(row.representative_name)}</span></div>`;
@@ -392,10 +443,17 @@
                         extraInfo = `<div class="text-xs text-gray-500 mt-1">Masa: ${formatTime(row.attendance_time)}</div>`;
                     }
                 } else if (row.attendance_status === 'TIDAK HADIR') {
+                    isModified = true;
                     statusBadge = `<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Tidak Hadir</span>`;
                 } else {
                     statusBadge = `<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Belum Hadir</span>`;
                 }
+
+                const resetBtn = isModified ? 
+                    `<button onclick="confirmReset('${row.id}', '${escapeHtml(row.nama.replace(/'/g, "\\'"))}')" class="mt-2 text-xs bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border border-yellow-300 py-1 px-2 rounded transition-colors inline-flex items-center">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        Reset Status
+                    </button>` : '';
 
                 html += `
                     <tr class="hover:bg-gray-50">
@@ -414,8 +472,9 @@
                             <div class="text-xs text-gray-500">${escapeHtml(row.kategori)}</div>
                         </td>
                         <td class="px-6 py-4">
-                            ${statusBadge}
+                            <div>${statusBadge}</div>
                             ${extraInfo}
+                            ${resetBtn}
                         </td>
                     </tr>
                 `;
@@ -426,7 +485,6 @@
             }
             reportTableBody.innerHTML = html;
 
-            // Wakil Summary Rendering
             let wakilHtml = '';
             const wakilData = allRecipients.filter(r => r.attendance_status === 'HADIR' && r.attendance_type === 'WAKIL');
             
@@ -448,10 +506,10 @@
                 wakilList.innerHTML = `<li class="p-4 text-center text-gray-500 text-sm" id="wakilEmpty">Tiada rekod wakil.</li>`;
             } else {
                 wakilList.innerHTML = wakilHtml;
+                wakilEmpty.classList.add('hidden');
             }
         }
 
-        // CSV Upload Handling
         const csvFileInput = document.getElementById('csvFileInput');
         csvFileInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -467,9 +525,7 @@
                         const data = results.data;
                         if (data.length === 0) throw new Error("Fail CSV kosong.");
 
-                        // Determine mapping dynamically based on common headers in data.md
                         const mappedData = data.map((row, index) => {
-                            // Find keys case-insensitively
                             const getVal = (possibleKeys) => {
                                 for(let key of Object.keys(row)) {
                                     if(possibleKeys.includes(key.trim().toUpperCase())) return row[key];
@@ -479,7 +535,7 @@
 
                             const bilStr = getVal(['BIL', 'NO', 'BILANGAN']);
                             let parsedBil = parseInt(bilStr);
-                            if(isNaN(parsedBil)) parsedBil = index + 1; // Fallback
+                            if(isNaN(parsedBil)) parsedBil = index + 1; 
 
                             return {
                                 bil: parsedBil,
@@ -490,14 +546,12 @@
                             };
                         });
 
-                        // Validate minimum data requirement
                         if (!mappedData[0].nama || !mappedData[0].sekolah) {
                             throw new Error("Format lajur tidak dikenali. Pastikan terdapat lajur BIL, NAMA PENERIMA, KATEGORI, dan NAMA SEKOLAH.");
                         }
 
                         showProcess(`Mengimport ${mappedData.length} rekod...`);
 
-                        // Chunk array for safe insertion (Supabase standard limit is high, but chunking is safer)
                         const chunkSize = 500;
                         for (let i = 0; i < mappedData.length; i += chunkSize) {
                             const chunk = mappedData.slice(i, i + chunkSize);
@@ -507,14 +561,14 @@
 
                         hideProcess();
                         showMsg('Berjaya', `${mappedData.length} rekod telah berjaya diimport.`);
-                        fetchData(); // Refresh UI
+                        fetchData(); 
                         
                     } catch (err) {
                         console.error(err);
                         hideProcess();
                         showMsg('Ralat Import', err.message || 'Gagal memproses fail CSV.');
                     } finally {
-                        csvFileInput.value = ''; // reset input
+                        csvFileInput.value = ''; 
                     }
                 },
                 error: function(err) {
@@ -525,7 +579,6 @@
             });
         });
 
-        // Clear Data via RPC
         async function executeClearData() {
             closeConfirmModal();
             showProcess('Memadam semua rekod...');
@@ -535,7 +588,7 @@
                 
                 hideProcess();
                 showMsg('Berjaya', 'Semua data telah dipadam.');
-                fetchData(); // Refresh to show empty state
+                fetchData(); 
             } catch (error) {
                 console.error("Error truncate:", error);
                 hideProcess();

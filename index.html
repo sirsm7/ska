@@ -51,12 +51,9 @@
             <p class="text-sm text-gray-500 mb-4">Cari mengikut No. Bil, Nama, atau Nama Sekolah.</p>
             <div class="flex">
                 <input type="text" id="searchInput" 
-                    class="w-full px-4 py-3 rounded-l-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg" 
-                    placeholder="Contoh: 25, Ahmad, SK Seri Melaka"
+                    class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg" 
+                    placeholder="Mula menaip... (Contoh: 25, Ahmad, SK Seri Melaka)"
                     autocomplete="off">
-                <button id="searchBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-r-lg font-semibold text-lg transition duration-150">
-                    Cari
-                </button>
             </div>
         </div>
 
@@ -85,6 +82,7 @@
                 <div class="mt-2 px-7 py-3">
                     <p class="text-sm text-gray-500 mb-2">Penerima asal: <span id="modalRecipientName" class="font-bold text-gray-800"></span></p>
                     <input type="hidden" id="modalRecipientId">
+                    <input type="hidden" id="modalRecipientSekolah">
                     <input type="text" id="wakilNameInput" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="Masukkan nama penuh wakil" required>
                 </div>
                 <div class="items-center px-4 py-3 flex justify-between gap-2">
@@ -107,7 +105,6 @@
 
         // DOM Elements
         const searchInput = document.getElementById('searchInput');
-        const searchBtn = document.getElementById('searchBtn');
         const resultsContainer = document.getElementById('resultsContainer');
         const loadingIndicator = document.getElementById('loadingIndicator');
         const errorMessage = document.getElementById('errorMessage');
@@ -117,17 +114,26 @@
         const wakilModal = document.getElementById('wakilModal');
         const modalRecipientName = document.getElementById('modalRecipientName');
         const modalRecipientId = document.getElementById('modalRecipientId');
+        const modalRecipientSekolah = document.getElementById('modalRecipientSekolah');
         const wakilNameInput = document.getElementById('wakilNameInput');
         const cancelWakilBtn = document.getElementById('cancelWakilBtn');
         const saveWakilBtn = document.getElementById('saveWakilBtn');
 
         // Event Listeners
-        searchBtn.addEventListener('click', performSearch);
-        searchInput.addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
-                performSearch();
+        // Gunakan debouncing untuk mengurangkan beban pelayan semasa carian live
+        let typingTimer;
+        const doneTypingInterval = 300; // 300 milisaat masa menunggu
+
+        searchInput.addEventListener('input', function () {
+            clearTimeout(typingTimer);
+            if (searchInput.value) {
+                typingTimer = setTimeout(performSearch, doneTypingInterval);
+            } else {
+                // Kosongkan hasil jika kotak carian kosong
+                resultsContainer.innerHTML = '';
             }
         });
+        
         cancelWakilBtn.addEventListener('click', closeWakilModal);
         saveWakilBtn.addEventListener('click', saveWakil);
 
@@ -228,10 +234,10 @@
                         }
                     } else if (student.attendance_status === 'TIDAK HADIR') {
                         statusHtml = `<div class="text-red-600 font-bold flex items-center"><span class="mr-1">🔴</span> Tidak Hadir</div>`;
-                        actionHtml = generateActionButtons(student.id, student.nama);
+                        actionHtml = generateActionButtons(student.id, student.nama, student.sekolah);
                     } else {
                         statusHtml = `<div class="text-yellow-600 font-bold flex items-center"><span class="mr-1">🟡</span> Belum Hadir</div>`;
-                        actionHtml = generateActionButtons(student.id, student.nama);
+                        actionHtml = generateActionButtons(student.id, student.nama, student.sekolah);
                     }
 
                     html += `
@@ -258,26 +264,27 @@
         }
 
         // Helper: Generate Action Buttons
-        function generateActionButtons(id, name) {
+        function generateActionButtons(id, name, sekolah) {
             return `
-                <button onclick="markHadir('${id}')" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded shadow font-semibold flex items-center justify-center transition duration-150">
+                <button onclick="markHadir('${id}', '${name.replace(/'/g, "\\'")}', '${sekolah.replace(/'/g, "\\'")}')" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded shadow font-semibold flex items-center justify-center transition duration-150">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                     HADIR
                 </button>
-                <button onclick="openWakilModal('${id}', '${name.replace(/'/g, "\\'")}')" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded shadow font-semibold flex items-center justify-center transition duration-150">
+                <button onclick="openWakilModal('${id}', '${name.replace(/'/g, "\\'")}', '${sekolah.replace(/'/g, "\\'")}')" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded shadow font-semibold flex items-center justify-center transition duration-150">
                     WAKIL
                 </button>
             `;
         }
 
-        // Mark as Hadir
-        async function markHadir(id) {
+        // Mark as Hadir (Auto-tick logic included)
+        async function markHadir(id, name, sekolah) {
             const actionContainer = document.getElementById(`actions-${id}`);
             if(actionContainer) actionContainer.innerHTML = '<span class="text-gray-500 text-sm">Menyimpan...</span>';
 
             const currentTime = new Date().toISOString();
 
             try {
+                // Gunakan padanan 'nama' dan 'sekolah' berbanding ID untuk fungsi auto-tick berganda
                 const { error } = await supabaseClient
                     .from('recipients')
                     .update({ 
@@ -286,7 +293,7 @@
                         attendance_type: 'SENDIRI',
                         representative_name: null
                     })
-                    .eq('id', id);
+                    .match({ nama: name, sekolah: sekolah }); // Kemaskini semua baris dengan nama dan sekolah yang sama
 
                 if (error) throw error;
                 
@@ -301,9 +308,10 @@
         }
 
         // Modal Functions for Wakil
-        function openWakilModal(id, name) {
+        function openWakilModal(id, name, sekolah) {
             modalRecipientId.value = id;
             modalRecipientName.textContent = name;
+            modalRecipientSekolah.value = sekolah;
             wakilNameInput.value = '';
             wakilModal.classList.remove('hidden');
             wakilNameInput.focus();
@@ -314,7 +322,8 @@
         }
 
         async function saveWakil() {
-            const id = modalRecipientId.value;
+            const nameToUpdate = modalRecipientName.textContent;
+            const sekolahToUpdate = modalRecipientSekolah.value;
             const wakilName = wakilNameInput.value.trim();
 
             if (!wakilName) {
@@ -329,6 +338,7 @@
             const currentTime = new Date().toISOString();
 
             try {
+                // Gunakan padanan 'nama' dan 'sekolah' berbanding ID untuk fungsi auto-tick berganda
                 const { error } = await supabaseClient
                     .from('recipients')
                     .update({ 
@@ -337,7 +347,7 @@
                         attendance_type: 'WAKIL',
                         representative_name: wakilName
                     })
-                    .eq('id', id);
+                    .match({ nama: nameToUpdate, sekolah: sekolahToUpdate }); // Kemaskini semua baris berkaitan
 
                 if (error) throw error;
                 
