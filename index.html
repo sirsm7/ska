@@ -40,13 +40,34 @@
 
     <main class="max-w-6xl mx-auto px-4 py-8">
         
-        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
             <label for="searchInput" class="block text-gray-700 text-lg font-bold mb-2">Carian Pantas</label>
             <p class="text-sm text-gray-500 mb-4">Cari mengikut No. Bil, Nama, atau Nama Sekolah. Biarkan kosong untuk melihat senarai penuh mengikut tab di bawah.</p>
             <div class="flex">
                 <input type="text" id="searchInput" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg uppercase" placeholder="MULA MENAIP... (CONTOH: 25, AHMAD, SK SERI MELAKA)" autocomplete="off">
             </div>
         </div>
+
+        <!-- Kad Skor Mula -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+                <p class="text-xs text-gray-500 font-medium uppercase">Jumlah Penerima</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="statTotal">0</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
+                <p class="text-xs text-gray-500 font-medium uppercase">Hadir Sendiri</p>
+                <p class="text-2xl font-bold text-green-600 mt-1" id="statHadir">0</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
+                <p class="text-xs text-gray-500 font-medium uppercase">Hadir (Wakil)</p>
+                <p class="text-2xl font-bold text-purple-600 mt-1" id="statWakil">0</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
+                <p class="text-xs text-gray-500 font-medium uppercase">Belum Hadir</p>
+                <p class="text-2xl font-bold text-yellow-600 mt-1" id="statBelum">0</p>
+            </div>
+        </div>
+        <!-- Kad Skor Tamat -->
 
         <div id="searchIndicator" class="hidden text-sm font-semibold text-blue-600 mb-4 bg-blue-50 p-3 rounded-lg border border-blue-200">
             Menunjukkan hasil carian. Padam carian untuk melihat paparan senarai tab.
@@ -110,6 +131,11 @@
         const tabTelah = document.getElementById('tabTelah');
         const countBelum = document.getElementById('countBelum');
         const countTelah = document.getElementById('countTelah');
+
+        const statTotal = document.getElementById('statTotal');
+        const statHadir = document.getElementById('statHadir');
+        const statWakil = document.getElementById('statWakil');
+        const statBelum = document.getElementById('statBelum');
 
         const wakilModal = document.getElementById('wakilModal');
         const modalRecipientName = document.getElementById('modalRecipientName');
@@ -190,10 +216,31 @@
         }
 
         function updateCounts() {
+            // Kemaskini jumlah tab
             const b = allData.filter(r => r.attendance_status !== 'HADIR').length;
             const t = allData.filter(r => r.attendance_status === 'HADIR').length;
             countBelum.textContent = b;
             countTelah.textContent = t;
+
+            // Kemaskini kad skor
+            let total = allData.length;
+            let hadir = 0;
+            let wakil = 0;
+            let belum = 0;
+
+            allData.forEach(r => {
+                if (r.attendance_status === 'HADIR') {
+                    if (r.attendance_type === 'WAKIL') wakil++;
+                    else hadir++;
+                } else {
+                    belum++; // Merangkumi BELUM HADIR dan TIDAK HADIR
+                }
+            });
+
+            if(statTotal) statTotal.textContent = total;
+            if(statHadir) statHadir.textContent = hadir;
+            if(statWakil) statWakil.textContent = wakil;
+            if(statBelum) statBelum.textContent = belum;
         }
 
         function processDataView() {
