@@ -62,8 +62,7 @@
                     <h1 class="text-xl font-bold tracking-tight sm:hidden">Admin</h1>
                 </div>
                 <div class="flex space-x-4 text-sm sm:text-base font-medium items-center">
-                    <a href="index.html" class="hover:text-blue-200 transition-colors">Carian</a>
-                    <a href="semakan.html" class="hover:text-blue-200 transition-colors">Semakan</a>
+                    <a href="index.html" class="hover:text-blue-200 transition-colors">Utama</a>
                     <a href="admin.html" class="font-semibold underline underline-offset-4 mr-2">Admin</a>
                     <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-bold transition-colors border border-red-700">Log Keluar</button>
                 </div>
@@ -88,6 +87,11 @@
                         Import CSV
                         <input type="file" id="csvFileInput" accept=".csv" class="hidden">
                     </label>
+
+                    <button onclick="confirmResetAll()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded shadow-sm flex items-center transition">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        Reset Pukal
+                    </button>
 
                     <button onclick="confirmClearData()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded shadow-sm flex items-center transition">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -180,6 +184,23 @@
         </div>
     </div>
 
+    <!-- Modal Reset Pukal -->
+    <div id="confirmResetAllModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[60] flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full fade-in">
+            <div class="flex items-center mb-4">
+                <div class="bg-yellow-100 rounded-full p-2 mr-3">
+                    <svg class="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900">Reset Pukal Kehadiran</h3>
+            </div>
+            <p class="text-gray-600 mb-6 text-sm">Adakah anda pasti mahu menetapkan semula (reset) status kehadiran untuk <strong>semua penerima</strong> kembali kepada 'Belum Hadir'? Maklumat waktu dan nama wakil akan dipadamkan. Tindakan ini tidak akan memadam senarai penerima.</p>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeConfirmResetAllModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded">Batal</button>
+                <button onclick="executeResetAll()" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded">Teruskan Reset</button>
+            </div>
+        </div>
+    </div>
+
     <div id="confirmModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full fade-in">
             <div class="flex items-center mb-4">
@@ -238,6 +259,7 @@
         const msgTitle = document.getElementById('msgTitle');
         const msgBody = document.getElementById('msgBody');
         const confirmModal = document.getElementById('confirmModal');
+        const confirmResetAllModal = document.getElementById('confirmResetAllModal');
         const confirmResetModal = document.getElementById('confirmResetModal');
         const resetTargetName = document.getElementById('resetTargetName');
         const resetTargetId = document.getElementById('resetTargetId');
@@ -305,6 +327,12 @@
         function closeConfirmModal() {
             confirmModal.classList.add('hidden');
         }
+        function confirmResetAll() {
+            confirmResetAllModal.classList.remove('hidden');
+        }
+        function closeConfirmResetAllModal() {
+            confirmResetAllModal.classList.add('hidden');
+        }
         function showProcess(text) {
             processText.textContent = text;
             processModal.classList.remove('hidden');
@@ -322,6 +350,23 @@
             confirmResetModal.classList.add('hidden');
             btnConfirmReset.innerHTML = 'Reset Status';
             btnConfirmReset.disabled = false;
+        }
+
+        async function executeResetAll() {
+            closeConfirmResetAllModal();
+            showProcess('Melaksanakan reset pukal...');
+            try {
+                const { error } = await supabaseClient.rpc('reset_all_attendance');
+                if (error) throw error;
+                
+                hideProcess();
+                showMsg('Berjaya', 'Semua status kehadiran telah dikembalikan kepada Belum Hadir.');
+                fetchData(); 
+            } catch (error) {
+                console.error("Error reset pukal:", error);
+                hideProcess();
+                showMsg('Ralat', 'Gagal melaksanakan reset pukal pangkalan data.');
+            }
         }
 
         async function executeResetData() {
@@ -346,10 +391,10 @@
                 showMsg('Berjaya', 'Status kehadiran telah dikembalikan kepada Belum Hadir.');
                 fetchData(); 
             } catch (error) {
-                console.error("Error reset:", error);
+                console.error("Error reset individu:", error);
                 btnConfirmReset.innerHTML = 'Reset Status';
                 btnConfirmReset.disabled = false;
-                showMsg('Ralat', 'Gagal menetapkan semula status.');
+                showMsg('Ralat', 'Gagal menetapkan semula status individu.');
             }
         }
 
