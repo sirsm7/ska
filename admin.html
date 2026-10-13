@@ -38,7 +38,6 @@
 
     <div id="loginScreen" class="fixed inset-0 bg-gray-900 bg-opacity-95 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl p-8 max-w-sm w-full fade-in relative">
-            <!-- Butang Kembali ke Utama ditambah di sini -->
             <a href="index.html" class="absolute top-4 left-4 text-gray-400 hover:text-blue-600 transition-colors" title="Kembali ke Utama">
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
             </a>
@@ -55,7 +54,6 @@
             <button id="loginBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded transition duration-150 mb-2">
                 Log Masuk
             </button>
-            <!-- Teks alternatif jika tidak perasan ikon arrow (Pilihan - boleh dibuang jika rasa padat) -->
             <div class="text-center mt-4">
                 <a href="index.html" class="text-sm text-gray-500 hover:text-blue-600 underline">Kembali ke Halaman Utama</a>
             </div>
@@ -193,7 +191,6 @@
         </div>
     </div>
 
-    <!-- Modal Reset Pukal -->
     <div id="confirmResetAllModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full fade-in">
             <div class="flex items-center mb-4">
@@ -300,10 +297,7 @@
             }
         }
 
-        // Event listener tambahan untuk mematikan bfcache (back-forward cache) pelayar
-        // Ini memastikan jika pengguna tekan butang 'Back' selepas logout, semakan sesi dilakukan semula
         window.addEventListener('pageshow', function (event) {
-            // event.persisted adalah true jika halaman dimuatkan dari cache
             if (event.persisted) {
                 checkSession();
             }
@@ -327,8 +321,6 @@
         logoutBtn.addEventListener('click', function() {
             localStorage.removeItem('isAdminLoggedIn');
             checkSession();
-            // Pilihan: Boleh paksa pengguna terus kembali ke index.html selepas logout
-            // window.location.href = 'index.html'; 
         });
 
         checkSession();
@@ -502,7 +494,7 @@
                     isModified = true;
                     if (row.attendance_type === 'WAKIL') {
                         statusBadge = `<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">Wakil Hadir</span>`;
-                        extraInfo = `<div class="text-xs text-gray-500 mt-1">Masa: ${formatTime(row.attendance_time)}<br/>Wakil: <span class="font-semibold text-gray-700">${escapeHtml(row.representative_name)}</span></div>`;
+                        extraInfo = `<div class="text-xs text-gray-500 mt-1">Masa: ${formatTime(row.attendance_time)}<br/>Kategori Wakil: <span class="font-semibold text-gray-700">${escapeHtml(row.representative_name)}</span></div>`;
                     } else {
                         statusBadge = `<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Hadir</span>`;
                         extraInfo = `<div class="text-xs text-gray-500 mt-1">Masa: ${formatTime(row.attendance_time)}</div>`;
@@ -559,7 +551,7 @@
                         <div class="text-sm font-bold text-gray-900">${escapeHtml(row.nama)}</div>
                         <div class="text-xs text-gray-500 mb-2">${escapeHtml(row.sekolah)}</div>
                         <div class="bg-purple-50 p-2 rounded text-xs border border-purple-100">
-                            <span class="font-semibold text-purple-700">Wakil:</span> ${escapeHtml(row.representative_name)}<br/>
+                            <span class="font-semibold text-purple-700">Kategori Wakil:</span> ${escapeHtml(row.representative_name)}<br/>
                             <span class="font-semibold text-purple-700">Masa:</span> ${formatTime(row.attendance_time)}
                         </div>
                     </li>

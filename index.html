@@ -99,12 +99,27 @@
             <div class="mt-3 text-center">
                 <h3 class="text-lg leading-6 font-medium text-gray-900" id="modalTitle">Daftar Wakil</h3>
                 <div class="mt-2 px-7 py-3">
-                    <p class="text-sm text-gray-500 mb-2">Penerima asal: <span id="modalRecipientName" class="font-bold text-gray-800"></span></p>
+                    <p class="text-sm text-gray-500 mb-2" id="modalSubtitle">Penerima asal: <span id="modalRecipientName" class="font-bold text-gray-800"></span></p>
+                    <input type="hidden" id="modalMode">
                     <input type="hidden" id="modalRecipientId">
                     <input type="hidden" id="modalRecipientSekolah">
-                    <input type="text" id="wakilNameInput" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 uppercase" placeholder="MASUKKAN NAMA PENUH WAKIL" required>
+                    
+                    <div class="flex flex-col gap-3 mt-4 text-left">
+                        <label class="inline-flex items-center p-3 border rounded-md cursor-pointer hover:bg-purple-50 border-gray-300">
+                            <input type="radio" name="wakilType" value="GURU" class="form-radio text-purple-600 h-5 w-5">
+                            <span class="ml-2 font-medium">Guru</span>
+                        </label>
+                        <label class="inline-flex items-center p-3 border rounded-md cursor-pointer hover:bg-purple-50 border-gray-300">
+                            <input type="radio" name="wakilType" value="PENTADBIR" class="form-radio text-purple-600 h-5 w-5">
+                            <span class="ml-2 font-medium">Pentadbir</span>
+                        </label>
+                        <label class="inline-flex items-center p-3 border rounded-md cursor-pointer hover:bg-purple-50 border-gray-300">
+                            <input type="radio" name="wakilType" value="IBU BAPA / PENJAGA" class="form-radio text-purple-600 h-5 w-5">
+                            <span class="ml-2 font-medium">Ibu Bapa / Penjaga</span>
+                        </label>
+                    </div>
                 </div>
-                <div class="items-center px-4 py-3 flex justify-between gap-2">
+                <div class="items-center px-4 py-3 flex justify-between gap-2 mt-4">
                     <button id="cancelWakilBtn" class="px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-300">Batal</button>
                     <button id="saveWakilBtn" class="px-4 py-2 bg-purple-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">Simpan</button>
                 </div>
@@ -141,7 +156,7 @@
         const modalRecipientName = document.getElementById('modalRecipientName');
         const modalRecipientId = document.getElementById('modalRecipientId');
         const modalRecipientSekolah = document.getElementById('modalRecipientSekolah');
-        const wakilNameInput = document.getElementById('wakilNameInput');
+        const modalMode = document.getElementById('modalMode');
         const cancelWakilBtn = document.getElementById('cancelWakilBtn');
         const saveWakilBtn = document.getElementById('saveWakilBtn');
 
@@ -154,10 +169,6 @@
             e.target.value = e.target.value.toUpperCase();
             clearTimeout(typingTimer);
             typingTimer = setTimeout(processDataView, doneTypingInterval);
-        });
-        
-        wakilNameInput.addEventListener('input', function (e) {
-            e.target.value = e.target.value.toUpperCase();
         });
 
         cancelWakilBtn.addEventListener('click', closeWakilModal);
@@ -216,13 +227,11 @@
         }
 
         function updateCounts() {
-            // Kemaskini jumlah tab
             const b = allData.filter(r => r.attendance_status !== 'HADIR').length;
             const t = allData.filter(r => r.attendance_status === 'HADIR').length;
             countBelum.textContent = b;
             countTelah.textContent = t;
 
-            // Kemaskini kad skor
             let total = allData.length;
             let hadir = 0;
             let wakil = 0;
@@ -233,7 +242,7 @@
                     if (r.attendance_type === 'WAKIL') wakil++;
                     else hadir++;
                 } else {
-                    belum++; // Merangkumi BELUM HADIR dan TIDAK HADIR
+                    belum++; 
                 }
             });
 
@@ -294,11 +303,22 @@
             let html = '';
 
             for (const [sekolah, students] of Object.entries(groupedBySchool)) {
+                // Semak jika ada murid belum hadir untuk paparan butang pukal
+                const hasBelumHadir = students.some(s => s.attendance_status !== 'HADIR');
+                const btnPukal = hasBelumHadir && currentTab === 'belum' ? 
+                    `<button onclick="openWakilModalPukal('${sekolah.replace(/'/g, "\\'")}')" class="bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300 text-xs px-3 py-1.5 rounded shadow-sm font-bold flex items-center transition">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        TANDA PUKAL WAKIL
+                    </button>` : '';
+
                 html += `
                     <div class="mb-8 fade-in">
-                        <h2 class="text-xl font-bold bg-gray-200 px-4 py-2 rounded-t-lg border-b border-gray-300 text-gray-800 uppercase tracking-wide">
-                            ${sekolah}
-                        </h2>
+                        <div class="flex justify-between items-center bg-gray-200 px-4 py-3 rounded-t-lg border-b border-gray-300">
+                            <h2 class="text-xl font-bold text-gray-800 uppercase tracking-wide">
+                                ${sekolah}
+                            </h2>
+                            ${btnPukal}
+                        </div>
                         <div class="bg-white shadow rounded-b-lg overflow-hidden">
                 `;
 
@@ -314,7 +334,7 @@
                         if(student.attendance_type === 'WAKIL') {
                              statusHtml = `
                              <div class="text-purple-600 font-bold flex items-center mb-1"><span class="mr-1">🟣</span> Wakil Hadir ${formatTime(student.attendance_time)}</div>
-                             <div class="text-sm text-gray-600">Diwakili oleh: ${student.representative_name}</div>
+                             <div class="text-sm text-gray-600 font-medium">Kategori Wakil: ${student.representative_name}</div>
                              `;
                         }
                     } else if (student.attendance_status === 'TIDAK HADIR') {
@@ -386,13 +406,28 @@
             }
         }
 
+        function resetRadioButtons() {
+            const radios = document.getElementsByName('wakilType');
+            radios.forEach(r => r.checked = false);
+        }
+
         function openWakilModal(id, name, sekolah) {
+            modalMode.value = 'INDIVIDU';
             modalRecipientId.value = id;
-            modalRecipientName.textContent = name;
             modalRecipientSekolah.value = sekolah;
-            wakilNameInput.value = '';
+            document.getElementById('modalSubtitle').innerHTML = `Penerima asal: <span id="modalRecipientName" class="font-bold text-gray-800">${name}</span>`;
+            
+            resetRadioButtons();
             wakilModal.classList.remove('hidden');
-            wakilNameInput.focus();
+        }
+
+        function openWakilModalPukal(sekolah) {
+            modalMode.value = 'PUKAL';
+            modalRecipientSekolah.value = sekolah;
+            document.getElementById('modalSubtitle').innerHTML = `Tanda wakil secara pukal untuk:<br><span class="font-bold text-gray-800 text-base uppercase">${sekolah}</span>`;
+            
+            resetRadioButtons();
+            wakilModal.classList.remove('hidden');
         }
 
         function closeWakilModal() {
@@ -400,15 +435,15 @@
         }
 
         async function saveWakil() {
-            const nameToUpdate = modalRecipientName.textContent;
+            const mode = modalMode.value;
             const sekolahToUpdate = modalRecipientSekolah.value;
-            const wakilName = wakilNameInput.value.trim();
+            const selectedRadio = document.querySelector('input[name="wakilType"]:checked');
 
-            if (!wakilName) {
-                alert("Sila masukkan nama wakil.");
-                wakilNameInput.focus();
+            if (!selectedRadio) {
+                alert("Sila pilih jenis wakil.");
                 return;
             }
+            const wakilType = selectedRadio.value;
 
             saveWakilBtn.disabled = true;
             saveWakilBtn.innerHTML = 'Menyimpan...';
@@ -416,17 +451,41 @@
             const currentTime = new Date().toISOString();
 
             try {
-                const { error } = await supabaseClient
-                    .from('recipients')
-                    .update({ 
-                        attendance_status: 'HADIR',
-                        attendance_time: currentTime,
-                        attendance_type: 'WAKIL',
-                        representative_name: wakilName
-                    })
-                    .match({ nama: nameToUpdate, sekolah: sekolahToUpdate });
+                if (mode === 'INDIVIDU') {
+                    // Update Individu
+                    const nameSpan = document.getElementById('modalRecipientName');
+                    const nameToUpdate = nameSpan ? nameSpan.innerText : '';
+                    
+                    const { error } = await supabaseClient
+                        .from('recipients')
+                        .update({ 
+                            attendance_status: 'HADIR',
+                            attendance_time: currentTime,
+                            attendance_type: 'WAKIL',
+                            representative_name: wakilType
+                        })
+                        .match({ nama: nameToUpdate, sekolah: sekolahToUpdate });
 
-                if (error) throw error;
+                    if (error) throw error;
+                } else if (mode === 'PUKAL') {
+                    // Update Pukal (Semua yang masih belum hadir untuk sekolah ini)
+                    const pendingStudents = allData.filter(s => s.sekolah === sekolahToUpdate && s.attendance_status !== 'HADIR');
+                    const idsToUpdate = pendingStudents.map(s => s.id);
+
+                    if (idsToUpdate.length > 0) {
+                        const { error } = await supabaseClient
+                            .from('recipients')
+                            .update({ 
+                                attendance_status: 'HADIR',
+                                attendance_time: currentTime,
+                                attendance_type: 'WAKIL',
+                                representative_name: wakilType
+                            })
+                            .in('id', idsToUpdate);
+
+                        if (error) throw error;
+                    }
+                }
                 
                 closeWakilModal();
                 fetchAllData(); 
