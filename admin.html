@@ -39,6 +39,11 @@
             cursor: pointer;
             accent-color: #10b981; /* Tailwind green-500 */
         }
+        .pentas-checkbox:disabled {
+            cursor: not-allowed;
+            accent-color: #9ca3af; /* Tailwind gray-400 */
+            opacity: 0.5;
+        }
         .naik-pentas-row {
             background-color: #ecfdf5 !important; /* Tailwind green-50 */
             transition: background-color 0.3s ease;
@@ -391,9 +396,6 @@
             closeConfirmResetAllModal();
             showProcess('Melaksanakan reset pukal...');
             try {
-                // Modified to also reset naik_pentas_status if needed, but existing RPC reset_all_attendance 
-                // might need update. For now, we update via client if RPC doesn't handle it.
-                // Assuming we want to clear ALL status including naik_pentas_status.
                 const { error } = await supabaseClient
                     .from('recipients')
                     .update({
@@ -403,7 +405,7 @@
                         representative_name: null,
                         naik_pentas_status: false
                     })
-                    .neq('id', '00000000-0000-0000-0000-000000000000'); // Dummy condition to update all
+                    .neq('id', '00000000-0000-0000-0000-000000000000'); 
 
                 if (error) throw error;
                 
@@ -469,7 +471,6 @@
             tableLoading.classList.remove('hidden');
 
             try {
-                // Ensure order is primarily by 'bil' (nombor giliran)
                 const { data, error } = await supabaseClient
                     .from('recipients')
                     .select('*')
@@ -519,7 +520,6 @@
         async function toggleNaikPentas(id, currentStatus) {
             const newStatus = !currentStatus;
             const checkbox = document.getElementById(`pentas-check-${id}`);
-            const row = document.getElementById(`row-${id}`);
             const container = document.getElementById(`pentas-container-${id}`);
             
             if (checkbox) checkbox.disabled = true;
@@ -533,13 +533,11 @@
 
                 if (error) throw error;
                 
-                // Update local array to reflect changes without full fetch
                 const index = allRecipients.findIndex(r => r.id === id);
                 if (index !== -1) {
                     allRecipients[index].naik_pentas_status = newStatus;
                 }
                 
-                // Fast re-render
                 renderTables();
             } catch (error) {
                 console.error("Ralat kemaskini status pentas:", error);
@@ -548,7 +546,7 @@
                     checkbox.checked = currentStatus;
                     checkbox.disabled = false;
                 }
-                renderTables(); // Re-render to restore state
+                renderTables(); 
             }
         }
 
@@ -558,12 +556,10 @@
             
             let filteredData = allRecipients;
 
-            // Apply Kehadiran Filter
             if (filterKehadiran !== 'ALL') {
                 filteredData = filteredData.filter(r => r.attendance_status === filterKehadiran);
             }
 
-            // Apply Pentas Filter
             if (filterPentas === 'BELUM_NAIK') {
                 filteredData = filteredData.filter(r => !r.naik_pentas_status);
             } else if (filterPentas === 'SUDAH_NAIK') {
@@ -576,7 +572,10 @@
                 let extraInfo = '';
                 let isModified = false;
                 
-                if (row.attendance_status === 'HADIR') {
+                // Tentukan adakah peserta hadir untuk disable logic
+                const isHadir = row.attendance_status === 'HADIR';
+                
+                if (isHadir) {
                     isModified = true;
                     if (row.attendance_type === 'WAKIL') {
                         statusBadge = `<span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">Wakil Hadir</span>`;
@@ -598,16 +597,15 @@
                         Reset
                     </button>` : '';
 
-                // Handle Naik Pentas status visually
                 const isNaikPentas = !!row.naik_pentas_status;
                 const rowClass = isNaikPentas ? 'naik-pentas-row' : 'hover:bg-gray-50 transition-colors';
                 const pentasLabel = isNaikPentas ? '<span class="text-xs font-bold text-green-600 block mt-1">SELESAI</span>' : '';
                 
-                // Allow ticking only if they are marked as HADIR (optional logic, but makes sense). 
-                // However, requirement asks to check based on sequence, so we allow check anytime.
-                // It is safer to visually indicate if they are not present though.
-                const warningNotPresent = (row.attendance_status !== 'HADIR') && isNaikPentas ? 
-                    `<br><span class="text-[10px] text-red-500 font-bold">*Tanda naik tapi belum lapor hadir</span>` : '';
+                // Mesej jika tidak hadir
+                const notPresentMsg = !isHadir ? `<span class="text-[10px] text-gray-500 mt-1 italic block text-center leading-tight">Belum lapor<br>hadir</span>` : '';
+                
+                // Set atribut disabled jika belum hadir
+                const disabledAttr = !isHadir ? 'disabled' : '';
 
                 html += `
                     <tr id="row-${row.id}" class="${rowClass} border-b border-gray-100">
@@ -632,9 +630,10 @@
                                     id="pentas-check-${row.id}" 
                                     class="pentas-checkbox" 
                                     ${isNaikPentas ? 'checked' : ''} 
+                                    ${disabledAttr}
                                     onchange="toggleNaikPentas('${row.id}', ${isNaikPentas})">
                                 ${pentasLabel}
-                                ${warningNotPresent}
+                                ${notPresentMsg}
                             </div>
                         </td>
                     </tr>
@@ -646,7 +645,6 @@
             }
             reportTableBody.innerHTML = html;
 
-            // Render Wakil List
             let wakilHtml = '';
             const wakilData = allRecipients.filter(r => r.attendance_status === 'HADIR' && r.attendance_type === 'WAKIL');
             
