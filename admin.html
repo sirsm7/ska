@@ -105,9 +105,14 @@
                         Segar Semula
                     </button>
                     
+                    <button onclick="eksportDataCSV()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow-sm flex items-center transition">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Eksport CSV (Backup)
+                    </button>
+
                     <label class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow-sm cursor-pointer flex items-center transition">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                        Import CSV
+                        Import CSV / Pulih
                         <input type="file" id="csvFileInput" accept=".csv" class="hidden">
                     </label>
 
@@ -709,8 +714,6 @@
             reportTableBody.innerHTML = html;
 
             let wakilHtml = '';
-            // Wakil list respects the category filter or just shows all wakil? 
-            // Usually it's better to respect the same filter for the wakil panel.
             const wakilData = filteredData.filter(r => r.attendance_status === 'HADIR' && r.attendance_type === 'WAKIL');
             
             wakilData.forEach(row => {
@@ -735,12 +738,48 @@
             }
         }
 
+        // Fungsi baharu untuk mengeksport data sebagai Backup CSV
+        function eksportDataCSV() {
+            if (!allRecipients || allRecipients.length === 0) {
+                showMsg('Maklumat', 'Tiada data untuk dimuat turun.');
+                return;
+            }
+            
+            showProcess('Menjana fail sandaran CSV...');
+            
+            try {
+                // Unparse keseluruhan data ke format CSV
+                const csvData = Papa.unparse(allRecipients);
+                
+                // Cipta Blob untuk dimuat turun
+                const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                
+                // Format masa untuk nama fail
+                const now = new Date();
+                const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                
+                const downloadLink = document.createElement("a");
+                downloadLink.href = url;
+                downloadLink.download = `Backup_Data_${timestamp}.csv`;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                
+                hideProcess();
+            } catch (err) {
+                console.error("Ralat eksport CSV:", err);
+                hideProcess();
+                showMsg('Ralat', 'Gagal menjana fail sandaran CSV.');
+            }
+        }
+
         const csvFileInput = document.getElementById('csvFileInput');
         csvFileInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
 
-            showProcess('Menganalisis CSV...');
+            showProcess('Menganalisis fail CSV...');
             
             Papa.parse(file, {
                 header: true,
@@ -757,36 +796,59 @@
                                 }
                                 return '';
                             };
+                            
+                            // Semak kewujudan ID untuk sokongan fail Backup
+                            const idVal = getVal(['ID']);
 
                             const bilStr = getVal(['BIL', 'NO', 'BILANGAN']);
                             let parsedBil = parseInt(bilStr);
                             if(isNaN(parsedBil)) parsedBil = index + 1; 
 
-                            return {
+                            // Menyokong lajur sokongan dari fail backup atau gunakan default
+                            const attStatus = getVal(['ATTENDANCE_STATUS', 'STATUS KEHADIRAN']) || 'BELUM HADIR';
+                            const attTimeStr = getVal(['ATTENDANCE_TIME', 'MASA']);
+                            const attTime = attTimeStr && attTimeStr !== 'null' && attTimeStr !== '' ? attTimeStr : null;
+                            const attType = getVal(['ATTENDANCE_TYPE', 'JENIS KEHADIRAN']);
+                            const repName = getVal(['REPRESENTATIVE_NAME', 'NAMA WAKIL']);
+                            
+                            const pentasStr = getVal(['NAIK_PENTAS_STATUS', 'STATUS PENTAS']);
+                            const naikPentas = (pentasStr === 'true' || pentasStr === 'TRUE' || pentasStr === '1') ? true : false;
+
+                            const record = {
                                 bil: parsedBil,
                                 nama: getVal(['NAMA', 'NAMA PENERIMA', 'PENERIMA']),
                                 kategori: getVal(['KATEGORI', 'KUMPULAN']),
                                 sekolah: getVal(['SEKOLAH', 'NAMA SEKOLAH']),
-                                attendance_status: 'BELUM HADIR',
-                                naik_pentas_status: false
+                                attendance_status: attStatus,
+                                attendance_time: attTime,
+                                attendance_type: (attType && attType !== 'null' && attType !== '') ? attType : null,
+                                representative_name: (repName && repName !== 'null' && repName !== '') ? repName : null,
+                                naik_pentas_status: naikPentas
                             };
+                            
+                            if (idVal && idVal !== '') {
+                                record.id = idVal;
+                            }
+
+                            return record;
                         });
 
                         if (!mappedData[0].nama || !mappedData[0].sekolah) {
-                            throw new Error("Format lajur tidak dikenali. Pastikan terdapat lajur BIL, NAMA PENERIMA, KATEGORI, dan NAMA SEKOLAH.");
+                            throw new Error("Format lajur tidak dikenali. Pastikan terdapat lajur NAMA dan SEKOLAH.");
                         }
 
-                        showProcess(`Mengimport ${mappedData.length} rekod...`);
+                        showProcess(`Memproses ${mappedData.length} rekod (Upsert)...`);
 
                         const chunkSize = 500;
                         for (let i = 0; i < mappedData.length; i += chunkSize) {
                             const chunk = mappedData.slice(i, i + chunkSize);
-                            const { error } = await supabaseClient.from('recipients').insert(chunk);
+                            // Menggunakan upsert supaya menyokong import bersih dan juga pemulihan dari fail backup (berdasarkan id)
+                            const { error } = await supabaseClient.from('recipients').upsert(chunk, { onConflict: 'id' });
                             if (error) throw error;
                         }
 
                         hideProcess();
-                        showMsg('Berjaya', `${mappedData.length} rekod telah berjaya diimport.`);
+                        showMsg('Berjaya', `${mappedData.length} rekod telah berjaya dimuat naik/dikemaskini.`);
                         fetchData(); 
                         
                     } catch (err) {
