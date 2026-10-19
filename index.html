@@ -48,15 +48,25 @@
     <main class="max-w-6xl mx-auto px-4 py-8">
         
         <div class="bg-white p-6 rounded-lg shadow-md mb-6">
-            <label for="searchInput" class="block text-gray-700 text-lg font-bold mb-2">Carian Pantas</label>
-            <p class="text-sm text-gray-500 mb-4">Cari mengikut No. Bil, Nama, atau Nama Sekolah. Biarkan kosong untuk melihat senarai penuh mengikut tab di bawah.</p>
-            <div class="relative">
-                <input type="search" id="searchInput" class="w-full pl-4 pr-12 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg uppercase" placeholder="MULA MENAIP... (CONTOH: 25, AHMAD, SK SERI MELAKA)" autocomplete="off">
-                <button id="resetSearchBtn" class="absolute inset-y-0 right-0 px-4 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none hidden">
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
+            <label for="searchInput" class="block text-gray-700 text-lg font-bold mb-2">Carian Pantas & Tapisan</label>
+            <p class="text-sm text-gray-500 mb-4">Cari mengikut No. Bil, Nama, atau Nama Sekolah. Anda juga boleh menapis senarai mengikut kategori penerima.</p>
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="relative flex-1">
+                    <input type="search" id="searchInput" class="w-full pl-4 pr-12 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg uppercase" placeholder="MULA MENAIP... (CONTOH: 25, AHMAD, SK SERI MELAKA)" autocomplete="off">
+                    <button id="resetSearchBtn" class="absolute inset-y-0 right-0 px-4 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none hidden">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="w-full md:w-1/4">
+                    <select id="filterKategori" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg uppercase bg-white cursor-pointer">
+                        <option value="ALL">SEMUA KATEGORI</option>
+                        <option value="GURU">GURU</option>
+                        <option value="MURID">MURID</option>
+                        <option value="SEKOLAH">SEKOLAH</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -86,7 +96,7 @@
         <!-- Kad Skor Tamat -->
 
         <div id="searchIndicator" class="hidden flex items-center justify-between text-sm font-semibold text-blue-600 mb-4 bg-blue-50 p-3 rounded-lg border border-blue-200">
-            <span>Menunjukkan hasil carian. Padam carian untuk melihat paparan senarai tab.</span>
+            <span>Menunjukkan hasil carian. Padam carian untuk melihat paparan senarai tab mengikut urutan.</span>
         </div>
 
         <div id="tabContainer" class="flex bg-white shadow rounded-lg overflow-hidden mb-6 border border-gray-200">
@@ -153,6 +163,7 @@
 
         const searchInput = document.getElementById('searchInput');
         const resetSearchBtn = document.getElementById('resetSearchBtn');
+        const filterKategori = document.getElementById('filterKategori');
         const searchIndicator = document.getElementById('searchIndicator');
         const tabContainer = document.getElementById('tabContainer');
         const resultsContainer = document.getElementById('resultsContainer');
@@ -186,7 +197,6 @@
         searchInput.addEventListener('input', function (e) {
             e.target.value = e.target.value.toUpperCase();
             
-            // Show/hide reset button based on input value
             if (e.target.value.trim().length > 0) {
                 resetSearchBtn.classList.remove('hidden');
             } else {
@@ -196,8 +206,9 @@
             clearTimeout(typingTimer);
             typingTimer = setTimeout(processDataView, doneTypingInterval);
         });
+        
+        filterKategori.addEventListener('change', processDataView);
 
-        // Function to clear search
         function clearSearch() {
             searchInput.value = '';
             resetSearchBtn.classList.add('hidden');
@@ -205,10 +216,8 @@
             searchInput.focus();
         }
 
-        // Event listener for reset button
         resetSearchBtn.addEventListener('click', clearSearch);
 
-        // Handle 'Esc' key to clear search
         searchInput.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 clearSearch();
@@ -259,7 +268,7 @@
 
                 if (error) throw error;
                 allData = data || [];
-                updateCounts();
+                
                 processDataView();
 
             } catch (error) {
@@ -270,19 +279,19 @@
             }
         }
 
-        function updateCounts() {
-            const b = allData.filter(r => r.attendance_status !== 'HADIR').length;
-            const t = allData.filter(r => r.attendance_status === 'HADIR').length;
+        function updateCounts(filteredDataSet) {
+            const b = filteredDataSet.filter(r => r.attendance_status !== 'HADIR').length;
+            const t = filteredDataSet.filter(r => r.attendance_status === 'HADIR').length;
             countBelum.textContent = b;
             countTelah.textContent = t;
 
-            let total = allData.length;
+            let total = filteredDataSet.length;
             let hadir = 0;
             let wakil = 0;
             let belum = 0;
             let tidakHadir = 0;
 
-            allData.forEach(r => {
+            filteredDataSet.forEach(r => {
                 if (r.attendance_status === 'HADIR') {
                     if (r.attendance_type === 'WAKIL') wakil++;
                     else hadir++;
@@ -302,14 +311,23 @@
 
         function processDataView() {
             const query = searchInput.value.trim();
-            let dataToRender = [];
+            const selectedKat = filterKategori.value;
+            let currentDataSet = allData;
+
+            if (selectedKat !== 'ALL') {
+                currentDataSet = currentDataSet.filter(r => r.kategori && r.kategori.toUpperCase().includes(selectedKat));
+            }
+            
+            updateCounts(currentDataSet);
+
+            let dataToRender = currentDataSet;
 
             if (query) {
                 searchIndicator.classList.remove('hidden');
                 tabContainer.classList.add('opacity-50', 'pointer-events-none');
                 
                 const qNum = parseInt(query);
-                dataToRender = allData.filter(r => 
+                dataToRender = dataToRender.filter(r => 
                     (r.nama && r.nama.includes(query)) || 
                     (r.sekolah && r.sekolah.includes(query)) ||
                     (!isNaN(qNum) && r.bil === qNum)
@@ -319,18 +337,24 @@
                 tabContainer.classList.remove('opacity-50', 'pointer-events-none');
                 
                 if (currentTab === 'belum') {
-                    dataToRender = allData.filter(r => r.attendance_status !== 'HADIR');
+                    dataToRender = dataToRender.filter(r => r.attendance_status !== 'HADIR');
                 } else {
-                    dataToRender = allData.filter(r => r.attendance_status === 'HADIR');
+                    dataToRender = dataToRender.filter(r => r.attendance_status === 'HADIR');
                 }
             }
             
-            renderResults(dataToRender, query);
+            renderResults(dataToRender, query, selectedKat);
         }
 
-        function renderResults(recipients, query) {
+        function renderResults(recipients, query, category) {
             if (!recipients || recipients.length === 0) {
-                const msg = query ? `Tiada rekod dijumpai untuk pencarian: "${query}"` : 'Tiada rekod dalam kategori ini.';
+                let msg = 'Tiada rekod dalam kategori ini.';
+                if (query) {
+                    msg = `Tiada rekod dijumpai untuk pencarian: "${query}"`;
+                } else if (category !== 'ALL') {
+                    msg = `Tiada rekod dijumpai untuk tapisan kategori: ${category}`;
+                }
+                
                 resultsContainer.innerHTML = `
                     <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
                         <div class="flex">
@@ -351,16 +375,15 @@
             let html = '';
 
             for (const [sekolah, students] of Object.entries(groupedBySchool)) {
-                // Semak jika ada murid belum hadir (bukan tidak hadir atau hadir) untuk butang pukal
                 const hasBelumHadir = students.some(s => s.attendance_status === 'BELUM HADIR');
                 
-                const btnPukal = hasBelumHadir && currentTab === 'belum' ? 
+                const btnPukal = hasBelumHadir && currentTab === 'belum' && !query ? 
                     `<button onclick="openWakilModalPukal('${sekolah.replace(/'/g, "\\'")}')" class="bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300 text-xs px-3 py-1.5 rounded shadow-sm font-bold flex items-center transition">
                         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                         TANDA PUKAL WAKIL
                     </button>` : '';
                     
-                const btnPukalTidak = hasBelumHadir && currentTab === 'belum' ? 
+                const btnPukalTidak = hasBelumHadir && currentTab === 'belum' && !query ? 
                     `<button onclick="confirmPukalTidakHadir('${sekolah.replace(/'/g, "\\'")}')" class="bg-red-100 hover:bg-red-200 text-red-800 border border-red-300 text-xs px-3 py-1.5 rounded shadow-sm font-bold flex items-center transition">
                         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         TANDA PUKAL TIDAK HADIR
@@ -507,7 +530,13 @@
             if(!confirm(`Mengesahkan SEMUA yang belum hadir untuk sekolah ${sekolah} sebagai TIDAK HADIR?`)) return;
             
             const currentTime = new Date().toISOString();
-            const pendingStudents = allData.filter(s => s.sekolah === sekolah && s.attendance_status === 'BELUM HADIR');
+            
+            const selectedKat = filterKategori.value;
+            let pendingStudents = allData.filter(s => s.sekolah === sekolah && s.attendance_status === 'BELUM HADIR');
+            if (selectedKat !== 'ALL') {
+                pendingStudents = pendingStudents.filter(s => s.kategori && s.kategori.toUpperCase().includes(selectedKat));
+            }
+            
             const idsToUpdate = pendingStudents.map(s => s.id);
             
             if (idsToUpdate.length > 0) {
@@ -528,6 +557,8 @@
                     console.error("Ralat pukal tidak hadir:", error);
                     showError("Gagal mengemaskini pukal tidak hadir.");
                 }
+            } else {
+                alert("Tiada penerima yang sepadan untuk ditandakan.");
             }
         }
 
@@ -577,7 +608,6 @@
 
             try {
                 if (mode === 'INDIVIDU') {
-                    // Update Individu
                     const nameSpan = document.getElementById('modalRecipientName');
                     const nameToUpdate = nameSpan ? nameSpan.innerText : '';
                     
@@ -593,8 +623,13 @@
 
                     if (error) throw error;
                 } else if (mode === 'PUKAL') {
-                    // Update Pukal (Semua yang masih belum hadir untuk sekolah ini)
-                    const pendingStudents = allData.filter(s => s.sekolah === sekolahToUpdate && s.attendance_status === 'BELUM HADIR');
+                    const selectedKat = filterKategori.value;
+                    let pendingStudents = allData.filter(s => s.sekolah === sekolahToUpdate && s.attendance_status === 'BELUM HADIR');
+                    
+                    if (selectedKat !== 'ALL') {
+                        pendingStudents = pendingStudents.filter(s => s.kategori && s.kategori.toUpperCase().includes(selectedKat));
+                    }
+                    
                     const idsToUpdate = pendingStudents.map(s => s.id);
 
                     if (idsToUpdate.length > 0) {
@@ -609,6 +644,8 @@
                             .in('id', idsToUpdate);
 
                         if (error) throw error;
+                    } else {
+                        alert("Tiada rekod yang sepadan untuk ditandakan (berdasarkan tapisan kategori).");
                     }
                 }
                 

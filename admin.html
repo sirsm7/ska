@@ -170,7 +170,13 @@
                                 <h3 class="text-lg font-bold text-gray-800">Senarai Keseluruhan (Ikut Giliran)</h3>
                                 <p class="text-xs text-gray-500">Tandakan kotak pada lajur "Naik Pentas" untuk menyemak senarai.</p>
                             </div>
-                            <div class="flex gap-2 w-full sm:w-auto">
+                            <div class="flex flex-wrap gap-2 w-full sm:w-auto">
+                                <select id="filterKategori" class="border border-gray-300 rounded text-sm px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                    <option value="ALL">Semua Kategori</option>
+                                    <option value="GURU">Kategori: Guru</option>
+                                    <option value="MURID">Kategori: Murid</option>
+                                    <option value="SEKOLAH">Kategori: Sekolah</option>
+                                </select>
                                 <select id="filterPentasStatus" class="border border-gray-300 rounded text-sm px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
                                     <option value="ALL">Semua Giliran</option>
                                     <option value="BELUM_NAIK">Belum Naik Pentas</option>
@@ -307,6 +313,7 @@
 
         const filterStatus = document.getElementById('filterStatus');
         const filterPentasStatus = document.getElementById('filterPentasStatus');
+        const filterKategori = document.getElementById('filterKategori');
         const tableLoading = document.getElementById('tableLoading');
         const reportTableBody = document.getElementById('reportTableBody');
         const wakilList = document.getElementById('wakilList');
@@ -521,6 +528,7 @@
 
         filterStatus.addEventListener('change', renderTables);
         filterPentasStatus.addEventListener('change', renderTables);
+        filterKategori.addEventListener('change', renderTables);
 
         async function toggleNaikPentas(id, currentStatus) {
             const newStatus = !currentStatus;
@@ -572,8 +580,13 @@
         function renderTables() {
             const filterKehadiran = filterStatus.value;
             const filterPentas = filterPentasStatus.value;
+            const filterKat = filterKategori.value;
             
             let filteredData = allRecipients;
+            
+            if (filterKat !== 'ALL') {
+                filteredData = filteredData.filter(r => r.kategori && r.kategori.toUpperCase().includes(filterKat));
+            }
 
             if (filterKehadiran !== 'ALL') {
                 filteredData = filteredData.filter(r => r.attendance_status === filterKehadiran);
@@ -696,7 +709,9 @@
             reportTableBody.innerHTML = html;
 
             let wakilHtml = '';
-            const wakilData = allRecipients.filter(r => r.attendance_status === 'HADIR' && r.attendance_type === 'WAKIL');
+            // Wakil list respects the category filter or just shows all wakil? 
+            // Usually it's better to respect the same filter for the wakil panel.
+            const wakilData = filteredData.filter(r => r.attendance_status === 'HADIR' && r.attendance_type === 'WAKIL');
             
             wakilData.forEach(row => {
                 wakilHtml += `
@@ -713,7 +728,7 @@
 
             if (wakilHtml === '') {
                 wakilEmpty.classList.remove('hidden');
-                wakilList.innerHTML = `<li class="p-4 text-center text-gray-500 text-sm" id="wakilEmpty">Tiada rekod wakil.</li>`;
+                wakilList.innerHTML = `<li class="p-4 text-center text-gray-500 text-sm" id="wakilEmpty">Tiada rekod wakil berdasarkan tapisan.</li>`;
             } else {
                 wakilList.innerHTML = wakilHtml;
                 wakilEmpty.classList.add('hidden');
