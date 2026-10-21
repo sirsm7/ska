@@ -370,11 +370,12 @@ function renderResults(recipients, query, category) {
             };
 
             const isMultiAward = profile.totalAwards > 1;
-            const isPrimaryAward = (row.bil === profile.primaryBil);
-            const awardIndex = isMultiAward ? (profile.allRecords.findIndex(r => r.bil === row.bil) + 1) : 1;
+            const currentIndex = profile.allRecords.findIndex(r => r.id === row.id);
+            const awardIndex = currentIndex + 1;
+            const nextRecord = profile.allRecords[currentIndex + 1];
 
             const cardBorderClass = isMultiAward 
-                ? (isPrimaryAward ? 'award-card-first' : 'award-card-subsequent') 
+                ? (currentIndex === 0 ? 'award-card-first' : 'award-card-subsequent') 
                 : '';
 
             const safeNama = row.nama ? row.nama.replace(/'/g, "\\'") : '';
@@ -383,27 +384,32 @@ function renderResults(recipients, query, category) {
 
             const rawCurrentTable = (row.no_meja && row.no_meja.toString().trim() !== '') ? row.no_meja.toString().toUpperCase() : '-';
             const currentAwardTableShort = rawCurrentTable.replace(/^MEJA\s*/, '');
-            const primaryTableShort = (profile.primaryTable && profile.primaryTable !== '-') 
-                ? profile.primaryTable.toString().toUpperCase().replace(/^MEJA\s*/, '')
-                : '-';
 
-            // Penentuan Warna Tema Untuk Kotak 2 & 3
-            let statusMejaUtamaText = 'MEJA<br>UTAMA';
+            let statusMejaUtamaText = '';
             let statusMejaUtamaClass = 'text-blue-700';
             let box2Bg = 'bg-blue-50';
             let box2Border = 'border-blue-200';
             let box3Bg = 'bg-blue-100';
             let box3Border = 'border-blue-300';
 
-            if (isMultiAward && !isPrimaryAward) {
-                statusMejaUtamaText = `DUDUK<br>MEJA ${escapeHtml(primaryTableShort)}`;
-                statusMejaUtamaClass = 'text-amber-700';
-                box2Bg = 'bg-amber-50';
-                box2Border = 'border-amber-200';
-                box3Bg = 'bg-amber-100';
-                box3Border = 'border-amber-300';
+            if (isMultiAward) {
+                if (nextRecord) {
+                    const rawNextTable = (nextRecord.no_meja && nextRecord.no_meja.toString().trim() !== '') ? nextRecord.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '') : '-';
+                    statusMejaUtamaText = `SETERUSNYA<br>MEJA ${escapeHtml(rawNextTable)}`;
+                    statusMejaUtamaClass = 'text-amber-700';
+                    box2Bg = 'bg-amber-50';
+                    box2Border = 'border-amber-200';
+                    box3Bg = 'bg-amber-100';
+                    box3Border = 'border-amber-300';
+                } else {
+                    statusMejaUtamaText = `ANUGERAH<br>TERAKHIR`;
+                    statusMejaUtamaClass = 'text-emerald-700';
+                    box2Bg = 'bg-emerald-50';
+                    box2Border = 'border-emerald-200';
+                    box3Bg = 'bg-emerald-100';
+                    box3Border = 'border-emerald-300';
+                }
             } else if (rawCurrentTable === '-') {
-                statusMejaUtamaText = 'TIADA<br>MEJA';
                 statusMejaUtamaClass = 'text-gray-500';
                 box2Bg = 'bg-gray-50';
                 box2Border = 'border-gray-200';
@@ -460,7 +466,7 @@ function renderResults(recipients, query, category) {
                     </div>
             `;
 
-            // Kotak 3: Status Meja (Hanya untuk anugerah berganda)
+            // Kotak 3: Status Meja Seterusnya (Hanya untuk anugerah berganda)
             if (isMultiAward) {
                 boxesHtml += `
                     <div class="flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center p-1 shadow-sm ${box3Classes}">

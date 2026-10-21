@@ -123,10 +123,6 @@ function naturalSort(a, b) {
     return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 }
 
-function getPersonKey(nama, sekolah) {
-    return `${(nama || '').trim().toUpperCase()}|||${(sekolah || '').trim().toUpperCase()}`;
-}
-
 async function fetchTableData() {
     if (loadingIndicator) loadingIndicator.classList.remove('hidden');
     if (tableGrid) tableGrid.innerHTML = '';
@@ -157,34 +153,37 @@ window.fetchTableData = fetchTableData;
 function groupDataByTable() {
     groupedTables = {};
 
+    // Kumpul semua rekod mengikut nama dan sekolah (untuk tentukan jumlah anugerah keseluruhan individu)
     const personMap = new Map();
     allRecipients.forEach(r => {
-        const pKey = getPersonKey(r.nama, r.sekolah);
+        const pKey = `${(r.nama || '').trim().toUpperCase()}|||${(r.sekolah || '').trim().toUpperCase()}`;
         if (!personMap.has(pKey)) {
             personMap.set(pKey, []);
         }
         personMap.get(pKey).push(r);
     });
 
-    const uniquePersons = [];
-    personMap.forEach((records) => {
-        records.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
-
-        const primaryRec = records[0];
-        let primaryTableKey = primaryRec.no_meja ? primaryRec.no_meja.trim().toUpperCase() : ''; 
-
-        if (!primaryTableKey) {
-            const fallback = records.find(r => r.no_meja && r.no_meja.trim() !== '');
-            primaryTableKey = fallback ? fallback.no_meja.trim().toUpperCase() : 'TANPA MEJA'; 
+    // Setiap rekod anugerah adalah entiti berasingan yang perlu duduk di mejanya
+    allRecipients.forEach(rec => {
+        let tableKey = rec.no_meja ? rec.no_meja.trim().toUpperCase() : 'TANPA MEJA'; 
+        
+        if (tableKey !== 'TANPA MEJA' && !tableKey.startsWith('MEJA')) {
+            tableKey = 'MEJA ' + tableKey;
         }
 
-        if (primaryTableKey !== 'TANPA MEJA' && !primaryTableKey.startsWith('MEJA')) {
-            primaryTableKey = 'MEJA ' + primaryTableKey;
+        if (!groupedTables[tableKey]) {
+            groupedTables[tableKey] = {
+                seatedParticipants: []
+            };
         }
 
-        const isAnyHadir = records.some(r => r.attendance_status === 'HADIR');
-        const isAllTidakHadir = records.length > 0 && records.every(r => r.attendance_status === 'TIDAK HADIR');
-
+        const pKey = `${(rec.nama || '').trim().toUpperCase()}|||${(rec.sekolah || '').trim().toUpperCase()}`;
+        const allPersonRecords = personMap.get(pKey);
+        
+        // Cari status kehadiran bersatu untuk individu ini
+        const isAnyHadir = allPersonRecords.some(r => r.attendance_status === 'HADIR');
+        const isAllTidakHadir = allPersonRecords.length > 0 && allPersonRecords.every(r => r.attendance_status === 'TIDAK HADIR');
+        
         let unifiedStatus = 'BELUM HADIR';
         let latestTime = null;
         let unifiedType = null;
@@ -192,7 +191,7 @@ function groupDataByTable() {
 
         if (isAnyHadir) {
             unifiedStatus = 'HADIR';
-            const hadirItem = records.find(r => r.attendance_status === 'HADIR');
+            const hadirItem = allPersonRecords.find(r => r.attendance_status === 'HADIR');
             latestTime = hadirItem.attendance_time;
             unifiedType = hadirItem.attendance_type;
             unifiedRep = hadirItem.representative_name;
@@ -200,62 +199,44 @@ function groupDataByTable() {
             unifiedStatus = 'TIDAK HADIR';
         }
 
-        uniquePersons.push({
-            pKey: getPersonKey(primaryRec.nama, primaryRec.sekolah),
-            nama: primaryRec.nama,
-            sekolah: primaryRec.sekolah,
-            kategori: primaryRec.kategori,
-            primaryBil: primaryRec.bil,
-            primaryTable: primaryTableKey,
-            allRecords: records,
-            totalAwards: records.length,
+        // Tentukan sama ada ini adalah giliran terakhir beliau
+        allPersonRecords.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
+        const currentIndex = allPersonRecords.findIndex(r => r.id === rec.id);
+        const hasNext = currentIndex < (allPersonRecords.length - 1);
+        
+        let nextTable = null;
+        let nextBil = null;
+        
+        if (hasNext) {
+            const nextRec = allPersonRecords[currentIndex + 1];
+            nextBil = nextRec.bil;
+            nextTable = nextRec.no_meja ? nextRec.no_meja.trim().toUpperCase() : 'TANPA MEJA';
+            if (nextTable !== 'TANPA MEJA' && !nextTable.startsWith('MEJA')) {
+                nextTable = 'MEJA ' + nextTable;
+            }
+        }
+
+        groupedTables[tableKey].seatedParticipants.push({
+            id: rec.id,
+            nama: rec.nama,
+            sekolah: rec.sekolah,
+            kategori: rec.kategori,
+            bil: rec.bil,
+            naik_pentas_status: rec.naik_pentas_status,
             attendance_status: unifiedStatus,
             attendance_time: latestTime,
             attendance_type: unifiedType,
-            representative_name: unifiedRep
+            representative_name: unifiedRep,
+            totalAwards: allPersonRecords.length,
+            awardIndex: currentIndex + 1,
+            hasNext: hasNext,
+            nextTable: nextTable,
+            nextBil: nextBil
         });
     });
 
-    uniquePersons.forEach(person => {
-        const tKey = person.primaryTable || 'TANPA MEJA';
-        if (!groupedTables[tKey]) {
-            groupedTables[tKey] = {
-                seatedParticipants: [],
-                crossTableParticipants: []
-            };
-        }
-        groupedTables[tKey].seatedParticipants.push(person);
-    });
-
-    allRecipients.forEach(rawRec => {
-        let rawTable = rawRec.no_meja ? rawRec.no_meja.trim().toUpperCase() : 'TANPA MEJA';
-        if (rawTable !== 'TANPA MEJA' && !rawTable.startsWith('MEJA')) {
-            rawTable = 'MEJA ' + rawTable;
-        }
-
-        const pKey = getPersonKey(rawRec.nama, rawRec.sekolah);
-        const parentPerson = uniquePersons.find(p => p.pKey === pKey);
-
-        if (parentPerson && parentPerson.primaryTable !== rawTable && rawTable !== 'TANPA MEJA') {
-            if (!groupedTables[rawTable]) {
-                groupedTables[rawTable] = {
-                    seatedParticipants: [],
-                    crossTableParticipants: []
-                };
-            }
-            const alreadyAdded = groupedTables[rawTable].crossTableParticipants.some(c => c.rawRecord.id === rawRec.id);
-            if (!alreadyAdded) {
-                groupedTables[rawTable].crossTableParticipants.push({
-                    rawRecord: rawRec,
-                    parentPerson: parentPerson
-                });
-            }
-        }
-    });
-
     Object.keys(groupedTables).forEach(tKey => {
-        groupedTables[tKey].seatedParticipants.sort((a, b) => (parseInt(a.primaryBil) || 0) - (parseInt(b.primaryBil) || 0));
-        groupedTables[tKey].crossTableParticipants.sort((a, b) => (parseInt(a.rawRecord.bil) || 0) - (parseInt(b.rawRecord.bil) || 0));
+        groupedTables[tKey].seatedParticipants.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
     });
 }
 
@@ -269,17 +250,15 @@ function updateOverviewCards() {
     tableKeys.forEach(tableKey => {
         const tableData = groupedTables[tableKey];
         const seated = tableData.seatedParticipants;
-        const cross = tableData.crossTableParticipants;
         
         const totalInTable = seated.length;
         const hadirCount = seated.filter(p => p.attendance_status === 'HADIR').length;
-        const crossHadirCount = cross.filter(c => c.parentPerson.attendance_status === 'HADIR').length;
         
         totalSeatedPersons += totalInTable;
 
         if (totalInTable > 0 && hadirCount === totalInTable) {
             full++;
-        } else if (hadirCount > 0 || crossHadirCount > 0) {
+        } else if (hadirCount > 0) {
             partial++;
         } else {
             empty++;
@@ -325,11 +304,9 @@ function renderTableShortcuts() {
     sortedTableKeys.forEach(tableKey => {
         const tableData = groupedTables[tableKey];
         const seated = tableData.seatedParticipants;
-        const cross = tableData.crossTableParticipants;
         
         const total = seated.length;
         const hadir = seated.filter(p => p.attendance_status === 'HADIR').length;
-        const crossHadir = cross.filter(c => c.parentPerson.attendance_status === 'HADIR').length;
         
         const isFull = (total > 0 && hadir === total);
         const isActive = (activeTableShortcut === tableKey);
@@ -355,7 +332,7 @@ function renderTableShortcuts() {
                 pillClass = 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-300 font-medium';
                 badgeColor = 'bg-gray-200 text-gray-600';
             }
-            statusIcon = `<span class="w-2 h-2 rounded-full ${(hadir > 0 || crossHadir > 0) ? 'bg-amber-400' : 'bg-gray-300'} inline-block flex-shrink-0"></span>`;
+            statusIcon = `<span class="w-2 h-2 rounded-full ${(hadir > 0) ? 'bg-amber-400' : 'bg-gray-300'} inline-block flex-shrink-0"></span>`;
         }
 
         const safeKey = escapeHtml(tableKey);
@@ -411,14 +388,12 @@ function renderTableGrid() {
     sortedTableKeys.forEach(tableKey => {
         const tableData = groupedTables[tableKey];
         const seated = tableData.seatedParticipants;
-        const cross = tableData.crossTableParticipants;
         
         const total = seated.length;
         const hadir = seated.filter(p => p.attendance_status === 'HADIR').length;
-        const crossHadir = cross.filter(c => c.parentPerson.attendance_status === 'HADIR').length;
         
         const isFull = (total > 0 && hadir === total);
-        const isEmpty = (hadir === 0 && crossHadir === 0);
+        const isEmpty = (hadir === 0);
         const isPartial = (!isFull && !isEmpty);
 
         if (activeTableShortcut && tableKey !== activeTableShortcut) return;
@@ -432,15 +407,9 @@ function renderTableGrid() {
             const matchSeated = seated.some(p => 
                 (p.nama && p.nama.toUpperCase().includes(query)) ||
                 (p.sekolah && p.sekolah.toUpperCase().includes(query)) ||
-                (p.primaryBil && p.primaryBil.toString() === query) ||
-                p.allRecords.some(r => r.bil && r.bil.toString() === query)
+                (p.bil && p.bil.toString() === query)
             );
-            const matchCross = cross.some(c => 
-                (c.rawRecord.nama && c.rawRecord.nama.toUpperCase().includes(query)) ||
-                (c.rawRecord.sekolah && c.rawRecord.sekolah.toUpperCase().includes(query)) ||
-                (c.rawRecord.bil && c.rawRecord.bil.toString() === query)
-            );
-            if (!matchTable && !matchSeated && !matchCross) return;
+            if (!matchTable && !matchSeated) return;
         }
 
         renderedCount++;
@@ -455,11 +424,7 @@ function renderTableGrid() {
             progressBg = 'bg-emerald-500';
         } else if (isPartial) {
             borderAccent = 'border-l-4 border-amber-500';
-            if (hadir === 0 && crossHadir > 0) {
-                statusBadge = '<span class="px-2 py-0.5 text-[11px] font-bold rounded bg-amber-100 text-amber-800">Hadir (Duduk Meja Lain)</span>';
-            } else {
-                statusBadge = '<span class="px-2 py-0.5 text-xs font-semibold rounded bg-amber-100 text-amber-800">Sebahagian Hadir</span>';
-            }
+            statusBadge = '<span class="px-2 py-0.5 text-xs font-semibold rounded bg-amber-100 text-amber-800">Sebahagian Hadir</span>';
             progressBg = 'bg-amber-500';
         }
 
@@ -471,7 +436,7 @@ function renderTableGrid() {
             if (i < total) {
                 const p = seated[i];
                 let slotColor = 'bg-gray-200 border-gray-300 text-gray-500';
-                let slotTitle = `${escapeHtml(p.nama)} - Belum Hadir (Bil #${p.primaryBil})`;
+                let slotTitle = `${escapeHtml(p.nama)} - Belum Hadir (Bil #${p.bil})`;
 
                 if (p.attendance_status === 'HADIR') {
                     if (p.attendance_type === 'WAKIL') {
@@ -500,13 +465,6 @@ function renderTableGrid() {
                 `;
             }
         }
-
-        const crossNotice = cross.length > 0 ? `
-            <div class="mt-2 text-[11px] bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 flex items-center justify-between">
-                <span>🔔 Penerima hadiah meja ini:</span>
-                <span class="font-bold">${cross.length} orang duduk di meja lain</span>
-            </div>
-        ` : '';
 
         const card = document.createElement('div');
         card.className = `bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-5 border border-gray-200 flex flex-col justify-between ${borderAccent} cursor-pointer`;
@@ -538,8 +496,6 @@ function renderTableGrid() {
                         ${slotsHtml}
                     </div>
                 </div>
-
-                ${crossNotice}
             </div>
 
             <div class="mt-5 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
@@ -564,9 +520,8 @@ function renderTableGrid() {
 function openDetailModal(tableKey) {
     if (!tableModal || !modalTableName || !modalParticipantList) return;
 
-    const tableData = groupedTables[tableKey] || { seatedParticipants: [], crossTableParticipants: [] };
+    const tableData = groupedTables[tableKey] || { seatedParticipants: [] };
     const seated = tableData.seatedParticipants;
-    const cross = tableData.crossTableParticipants;
 
     const totalSeated = seated.length;
     const hadir = seated.filter(p => p.attendance_status === 'HADIR').length;
@@ -584,7 +539,6 @@ function openDetailModal(tableKey) {
                 <span class="px-2.5 py-1 rounded bg-purple-50 text-purple-700 font-bold">Wakil: ${wakil}</span>
                 <span class="px-2.5 py-1 rounded bg-rose-50 text-rose-700 font-bold">Tidak Hadir: ${tidakHadir}</span>
                 <span class="px-2.5 py-1 rounded bg-amber-50 text-amber-700 font-bold">Belum Hadir: ${belumHadir}</span>
-                ${cross.length > 0 ? `<span class="px-2.5 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300 font-bold">🔔 Panggil Dari Meja Lain: ${cross.length} Orang</span>` : ''}
             </div>
         `;
     }
@@ -594,7 +548,7 @@ function openDetailModal(tableKey) {
     rowsHtml += `
         <tr class="bg-blue-50 border-b border-blue-200">
             <td colspan="5" class="px-4 py-2.5 text-xs font-bold text-blue-900 uppercase tracking-wider">
-                Bahagian 1: Peserta Yang Duduk Di Meja Ini (Kapasiti Kerusi Fizikal)
+                Senarai Peserta Duduk Di Meja Ini
             </td>
         </tr>
     `;
@@ -620,22 +574,29 @@ function openDetailModal(tableKey) {
                 statusBadge = '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-100 text-amber-800">Belum Hadir</span>';
             }
 
-            let pentasBadges = '';
-            p.allRecords.forEach(rec => {
-                const isSelesai = !!rec.naik_pentas_status;
-                pentasBadges += `
-                    <div class="inline-flex items-center gap-1 my-0.5 px-2 py-0.5 rounded text-[11px] ${isSelesai ? 'bg-emerald-100 text-emerald-800 font-bold' : 'bg-gray-100 text-gray-600'}">
-                        <span>#${escapeHtml(rec.bil)}:</span>
-                        <span>${isSelesai ? 'Selesai Pentas' : 'Belum'}</span>
-                    </div>
-                `;
-            });
-
-            const multiNotice = p.totalAwards > 1 ? `
-                <div class="text-[10px] text-amber-700 font-bold mt-1 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
-                    ★ ${p.totalAwards} Anugerah (Duduk di meja ini berasaskan Giliran Terawal #${escapeHtml(p.primaryBil)})
+            const isSelesai = !!p.naik_pentas_status;
+            let pentasBadge = `
+                <div class="inline-flex items-center gap-1 my-0.5 px-2 py-0.5 rounded text-[11px] ${isSelesai ? 'bg-emerald-100 text-emerald-800 font-bold' : 'bg-gray-100 text-gray-600'}">
+                    <span>${isSelesai ? 'Selesai Pentas' : 'Belum'}</span>
                 </div>
-            ` : '';
+            `;
+
+            let multiNotice = '';
+            if (p.totalAwards > 1) {
+                if (p.hasNext) {
+                    multiNotice = `
+                        <div class="text-[10px] text-amber-800 font-bold mt-1 bg-amber-50 px-2 py-1 rounded border border-amber-200 inline-block shadow-sm">
+                            ★ Anugerah ${p.awardIndex}/${p.totalAwards}. Selepas ini ke <strong>${escapeHtml(p.nextTable)}</strong> (Giliran #${escapeHtml(p.nextBil)}).
+                        </div>
+                    `;
+                } else {
+                    multiNotice = `
+                        <div class="text-[10px] text-emerald-800 font-bold mt-1 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 inline-block shadow-sm">
+                            ★ Ini anugerah terakhir (${p.awardIndex}/${p.totalAwards}).
+                        </div>
+                    `;
+                }
+            }
 
             rowsHtml += `
                 <tr class="hover:bg-gray-50 transition-colors border-b border-gray-100">
@@ -643,7 +604,7 @@ function openDetailModal(tableKey) {
                         ${idx + 1}
                     </td>
                     <td class="px-3 py-3 text-center text-xs font-bold text-blue-700 w-20">
-                        <span class="px-2 py-1 bg-blue-100 rounded text-blue-900">#${escapeHtml(p.primaryBil)}</span>
+                        <span class="px-2 py-1 bg-blue-100 rounded text-blue-900">#${escapeHtml(p.bil)}</span>
                     </td>
                     <td class="px-4 py-3 text-sm">
                         <div class="font-bold text-gray-900">${escapeHtml(p.nama)}</div>
@@ -657,56 +618,8 @@ function openDetailModal(tableKey) {
                     </td>
                     <td class="px-3 py-3 text-center text-xs">
                         <div class="flex flex-col items-center">
-                            ${pentasBadges}
+                            ${pentasBadge}
                         </div>
-                    </td>
-                </tr>
-            `;
-        });
-    }
-
-    if (cross.length > 0) {
-        rowsHtml += `
-            <tr class="bg-amber-100/80 border-y-2 border-amber-300">
-                <td colspan="5" class="px-4 py-2.5 text-xs font-black text-amber-950 uppercase tracking-wider flex items-center justify-between">
-                    <span>Bahagian 2: Senarai Semakan Pengurus Peserta (Penerima Hadiah Meja Ini Yang Duduk Di Meja Lain)</span>
-                    <span class="text-[11px] bg-amber-200 px-2 py-0.5 rounded border border-amber-400 font-bold">Tindakan: Panggil Dari Meja Duduk Fizikal</span>
-                </td>
-            </tr>
-        `;
-
-        cross.forEach(c => {
-            const r = c.rawRecord;
-            const parent = c.parentPerson;
-            const isSelesai = !!r.naik_pentas_status;
-
-            rowsHtml += `
-                <tr class="bg-amber-50/40 hover:bg-amber-50 transition-colors border-b border-amber-200">
-                    <td class="px-3 py-3 text-center text-xs font-bold text-amber-600">
-                        -
-                    </td>
-                    <td class="px-3 py-3 text-center text-xs font-bold text-gray-800">
-                        <span class="px-2 py-1 bg-gray-800 text-white rounded font-mono">#${escapeHtml(r.bil)}</span>
-                    </td>
-                    <td class="px-4 py-3 text-sm">
-                        <div class="font-bold text-gray-900">${escapeHtml(r.nama)}</div>
-                        <div class="text-xs text-gray-600">${escapeHtml(r.sekolah)} - ${escapeHtml(r.kategori || '')}</div>
-                        <div class="mt-1.5 text-xs font-bold text-amber-900 bg-amber-100 px-2.5 py-1 rounded border border-amber-300 inline-flex flex-wrap items-center gap-1.5 shadow-xs">
-                            <span>🔔 PENGURUS PESERTA:</span>
-                            <span>Panggil peserta dari tempat duduk:</span>
-                            <span class="bg-blue-600 text-white px-2 py-0.2 rounded font-black">${escapeHtml(parent.primaryTable)}</span>
-                            <span class="text-slate-600 font-normal text-[11px]">(Giliran Hadiah Terawal #${escapeHtml(parent.primaryBil)})</span>
-                        </div>
-                    </td>
-                    <td class="px-4 py-3 text-sm whitespace-nowrap">
-                        <span class="px-2 py-0.5 text-xs font-bold rounded-full ${parent.attendance_status === 'HADIR' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-gray-100 text-gray-700'}">
-                            ${escapeHtml(parent.attendance_status)}
-                        </span>
-                    </td>
-                    <td class="px-3 py-3 text-center text-xs">
-                        <span class="px-2 py-0.5 text-[11px] rounded font-bold ${isSelesai ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-gray-100 text-gray-600'}">
-                            ${isSelesai ? `Selesai Pentas #${escapeHtml(r.bil)}` : 'Belum Naik Pentas'}
-                        </span>
                     </td>
                 </tr>
             `;

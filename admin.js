@@ -358,43 +358,48 @@ function renderTables() {
         
         const pKey = getPersonKey(row.nama, row.sekolah);
         const personRecords = personProfilesMap.get(pKey) || [row];
-        const primaryRecord = personRecords[0];
         const totalAwards = personRecords.length;
-        const isPrimaryAward = (row.bil === primaryRecord.bil);
-        const rawPrimaryTable = primaryRecord.no_meja ? primaryRecord.no_meja : '-';
-        const primaryTableFormatted = (rawPrimaryTable && rawPrimaryTable !== '-')
-            ? (rawPrimaryTable.toString().toUpperCase().startsWith('MEJA') ? rawPrimaryTable : 'MEJA ' + rawPrimaryTable)
-            : '-';
-        const currentAwardTable = (row.no_meja && row.no_meja.toString().trim() !== '')
-            ? (row.no_meja.toString().toUpperCase().startsWith('MEJA') ? row.no_meja : 'MEJA ' + row.no_meja)
-            : '-';
-        const awardIndex = personRecords.findIndex(r => r.bil === row.bil) + 1;
+        const currentIndex = personRecords.findIndex(r => r.id === row.id);
+        const awardIndex = currentIndex + 1;
+        
+        const rawCurrentTable = row.no_meja ? row.no_meja : '-';
+        const currentTableFormatted = (rawCurrentTable !== '-' && !rawCurrentTable.toString().toUpperCase().startsWith('MEJA'))
+            ? 'MEJA ' + rawCurrentTable : rawCurrentTable;
 
         let tableDisplayHtml = '';
+        
         if (totalAwards > 1) {
-            if (isPrimaryAward) {
+            const nextRecord = personRecords[currentIndex + 1];
+            
+            if (nextRecord) {
+                // Ada anugerah seterusnya
+                const rawNextTable = nextRecord.no_meja ? nextRecord.no_meja : '-';
+                const nextTableFormatted = (rawNextTable !== '-' && !rawNextTable.toString().toUpperCase().startsWith('MEJA'))
+                    ? 'MEJA ' + rawNextTable : rawNextTable;
+                    
                 tableDisplayHtml = `
-                    <div class="mt-1.5 flex flex-col gap-1 p-2 bg-blue-50 border border-blue-200 rounded">
-                        <div class="flex items-center gap-1.5 text-xs font-bold text-blue-900">
-                            <span>🪑 Meja Duduk Fizikal (Utama):</span>
-                            <span class="bg-blue-600 text-white px-2 py-0.5 rounded shadow-sm">${escapeHtml(primaryTableFormatted)}</span>
+                    <div class="mt-1.5 flex flex-col gap-1.5 p-2 bg-amber-50 border border-amber-300 rounded shadow-sm">
+                        <div class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-gray-800">
+                            <span>MEJA GILIRAN INI:</span>
+                            <span class="bg-gray-800 text-white px-2 py-0.5 rounded font-black">${escapeHtml(currentTableFormatted)}</span>
                         </div>
-                        <span class="text-[11px] text-blue-700">Peserta duduk di sini untuk keseluruhan majlis.</span>
+                        <div class="text-[11px] font-bold text-amber-900 bg-amber-100 px-2.5 py-2 rounded border border-amber-300">
+                            <span class="block mb-1 text-xs">🔔 <strong>ARAHAN PENGURUS PESERTA:</strong></span>
+                            Selepas turun dari pentas, arahkan peserta bergerak ke <strong>${escapeHtml(nextTableFormatted)}</strong> untuk bersedia bagi giliran anugerah <strong>#${escapeHtml(nextRecord.bil)}</strong>.
+                        </div>
                     </div>
                 `;
             } else {
+                // Ini anugerah terakhir dia
                 tableDisplayHtml = `
-                    <div class="mt-1.5 flex flex-col gap-1.5 p-2 bg-amber-50 border border-amber-300 rounded">
+                    <div class="mt-1.5 flex flex-col gap-1.5 p-2 bg-emerald-50 border border-emerald-300 rounded shadow-sm">
                         <div class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-gray-800">
-                            <span>NO MEJA:</span>
-                            <span class="bg-gray-800 text-white px-2 py-0.5 rounded font-black">${escapeHtml(currentAwardTable)}</span>
-                            <span class="inline-flex items-center text-xs font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded border border-blue-300">
-                                🪑 Duduk di: ${escapeHtml(primaryTableFormatted)}
-                            </span>
+                            <span>MEJA GILIRAN INI:</span>
+                            <span class="bg-gray-800 text-white px-2 py-0.5 rounded font-black">${escapeHtml(currentTableFormatted)}</span>
                         </div>
-                        <div class="text-[11px] font-bold text-amber-900 bg-amber-100 px-2 py-1 rounded border border-amber-300 flex items-center gap-1">
-                            <span>🔔 PENGURUS PESERTA:</span>
-                            <span>Peserta berada di <strong>${escapeHtml(primaryTableFormatted)}</strong>. Panggil peserta dari meja tersebut untuk naik pentas giliran ini.</span>
+                        <div class="text-[11px] font-bold text-emerald-900 bg-emerald-100 px-2.5 py-2 rounded border border-emerald-300">
+                            <span class="block mb-1 text-xs">✅ <strong>ARAHAN PENGURUS PESERTA:</strong></span>
+                            Ini adalah anugerah TERAKHIR peserta. Selepas turun pentas, peserta boleh kembali ke mana-mana tempat duduk kosong asal mereka atau mengikut protokol majlis.
                         </div>
                     </div>
                 `;
@@ -402,7 +407,7 @@ function renderTables() {
         } else {
             tableDisplayHtml = `
                 <div class="mt-1.5 text-[11px] font-semibold text-blue-700 flex items-center gap-1">
-                    🪑 Meja Duduk Fizikal: <span class="font-bold text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded">${escapeHtml(currentAwardTable)}</span>
+                    🪑 Meja Semasa: <span class="font-bold text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded">${escapeHtml(currentTableFormatted)}</span>
                 </div>
             `;
         }
