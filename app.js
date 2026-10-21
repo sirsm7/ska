@@ -239,7 +239,6 @@ function updateCounts(filteredDataSet) {
     if (statTidakHadir) statTidakHadir.textContent = tidakHadir;
     if (statBelum) statBelum.textContent = belum;
     
-    // PEMBAIKAN: Kemas kini tab sentiasa berjalan, tidak disekat oleh teks carian
     if (countBelum) countBelum.textContent = belumTabCount;
     if (countTelah) countTelah.textContent = telahTabCount;
 }
@@ -289,7 +288,6 @@ function processDataView() {
         }
     }
     
-    // PEMBAIKAN: Betulkan pembolehubah category -> selectedKat
     renderResults(dataToRender, query, selectedKat);
 }
 
@@ -328,7 +326,6 @@ function renderResults(recipients, query, category) {
 
         const hasBelumHadir = records.some(s => s.attendance_status === 'BELUM HADIR');
         
-        // PEMBAIKAN: Buang larangan (!query) agar butang pukal sentiasa muncul semasa di tab belum hadir
         const btnPukal = hasBelumHadir && currentTab === 'belum' ? 
             `<button onclick="openWakilModalPukal('${escapeHtml(sekolah.replace(/'/g, "\\'"))}')" class="bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300 text-xs px-3 py-1.5 rounded shadow-sm font-bold flex items-center transition">
                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
@@ -423,13 +420,12 @@ function renderResults(recipients, query, category) {
                                     🪑
                                 </div>
                                 <div>
-                                    <span class="text-[10px] font-black tracking-wider text-blue-700 uppercase block">Meja Utama Tempat Duduk Peserta</span>
+                                    <span class="text-[10px] font-black tracking-wider text-blue-700 uppercase block">Meja Duduk Fizikal (Utama)</span>
                                     <span class="text-lg font-black text-blue-900 tracking-tight">${primaryTableLabel}</span>
                                 </div>
                             </div>
                             <div class="text-xs text-blue-800 bg-white/90 px-2.5 py-1 rounded border border-blue-200 font-bold flex items-center gap-1">
                                 <span>★ Giliran Terawal (${awardIndex}/${profile.totalAwards})</span>
-                                <span class="text-[11px] text-blue-600 font-normal">- Peserta duduk di meja ini</span>
                             </div>
                         </div>
                     `;
@@ -437,16 +433,15 @@ function renderResults(recipients, query, category) {
                     seatingHtml = `
                         <div class="subsequent-seat-tag rounded-lg p-2.5 mb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div class="flex items-center gap-2">
-                                <span class="text-sm">ℹ️</span>
-                                <div class="text-xs text-slate-700">
-                                    Tempat duduk fizikal: <strong class="text-blue-900">${primaryTableLabel}</strong> 
-                                    <span class="text-slate-500">(Ditetapkan pada Giliran Terawal #${escapeHtml(profile.primaryBil)})</span>
+                                <span class="text-xl">⚠️</span>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-700">Meja Anugerah (Simbolik): <span class="text-lg font-black">${escapeHtml(row.no_meja || '-')}</span></div>
+                                    <div class="text-[11px] text-slate-500 font-medium">Sila kekal di meja utama <strong class="text-blue-900">${primaryTableLabel}</strong> (Giliran #${escapeHtml(profile.primaryBil)})</div>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-1.5 text-[11px]">
-                                <span class="text-slate-500">Meja Giliran Ini: <strong>${escapeHtml(row.no_meja || '-')}</strong></span>
-                                <span class="text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded border border-amber-300">
-                                    Giliran ${awardIndex}/${profile.totalAwards}
+                            <div class="flex items-center gap-1.5 text-[11px] mt-2 sm:mt-0">
+                                <span class="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded border border-amber-300 shadow-sm">
+                                    Anugerah ${awardIndex}/${profile.totalAwards}
                                 </span>
                             </div>
                         </div>
@@ -455,7 +450,7 @@ function renderResults(recipients, query, category) {
             } else {
                 seatingHtml = `
                     <div class="mb-2 text-xs font-semibold text-blue-700 flex items-center gap-2">
-                        <span>🪑 Meja Duduk:</span>
+                        <span>🪑 Meja Duduk Fizikal:</span>
                         <span class="bg-blue-100 text-blue-900 px-2.5 py-0.5 rounded font-bold font-mono text-sm">${escapeHtml(row.no_meja || '-')}</span>
                     </div>
                 `;
@@ -539,7 +534,6 @@ window.clearSearch = clearSearch;
 async function markHadir(name, sekolah) {
     const currentTime = new Date().toISOString();
 
-    // PEMBAIKAN: Kemas kini Optimistik UI supaya terasa serta-merta
     let updated = false;
     allData.forEach(r => {
         if (r.nama === name && r.sekolah === sekolah) {
@@ -571,7 +565,7 @@ async function markHadir(name, sekolah) {
     } catch (error) {
         console.error("Ralat tanda hadir:", error);
         showError("Gagal mengemaskini status kehadiran.");
-        fetchAllData(); // Kembalikan ke pangkalan data sebenar jika ralat
+        fetchAllData(); 
     }
 }
 
@@ -580,7 +574,6 @@ async function markTidakHadir(name, sekolah) {
     
     const currentTime = new Date().toISOString();
 
-    // PEMBAIKAN: Kemas kini Optimistik UI
     let updated = false;
     allData.forEach(r => {
         if (r.nama === name && r.sekolah === sekolah) {
@@ -630,7 +623,6 @@ async function confirmPukalTidakHadir(sekolah) {
     const idsToUpdate = pendingStudents.map(s => s.id);
     
     if (idsToUpdate.length > 0) {
-        // PEMBAIKAN: Kemas kini Optimistik UI
         allData.forEach(r => {
             if (idsToUpdate.includes(r.id)) {
                 r.attendance_status = 'TIDAK HADIR';
@@ -729,7 +721,6 @@ async function saveWakil() {
             const nameSpan = document.getElementById('modalRecipientName');
             const nameToUpdate = nameSpan ? nameSpan.innerText : '';
             
-            // PEMBAIKAN: Kemas kini Optimistik UI
             allData.forEach(r => {
                 if (r.nama === nameToUpdate && r.sekolah === sekolahToUpdate) {
                     r.attendance_status = 'HADIR';
@@ -761,7 +752,6 @@ async function saveWakil() {
             const idsToUpdate = pendingStudents.map(s => s.id);
 
             if (idsToUpdate.length > 0) {
-                // PEMBAIKAN: Kemas kini Optimistik UI
                 allData.forEach(r => {
                     if (idsToUpdate.includes(r.id)) {
                         r.attendance_status = 'HADIR';
@@ -788,15 +778,13 @@ async function saveWakil() {
         }
         
         closeWakilModal();
-        
-        // Terus papar perubahan di skrin
         personProfilesMap = buildPersonProfiles(allData);
         processDataView(); 
 
     } catch (error) {
         console.error("Ralat daftar wakil:", error);
         showError("Gagal merekod maklumat wakil.");
-        fetchAllData(); // Kembalikan ke pangkalan data sebenar jika ralat
+        fetchAllData(); 
     } finally {
         if (saveWakilBtn) {
             saveWakilBtn.disabled = false;

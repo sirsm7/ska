@@ -579,7 +579,7 @@ function openDetailModal(tableKey) {
                 <span class="px-2.5 py-1 rounded bg-purple-50 text-purple-700 font-bold">Wakil: ${wakil}</span>
                 <span class="px-2.5 py-1 rounded bg-rose-50 text-rose-700 font-bold">Tidak Hadir: ${tidakHadir}</span>
                 <span class="px-2.5 py-1 rounded bg-amber-50 text-amber-700 font-bold">Belum Hadir: ${belumHadir}</span>
-                ${cross.length > 0 ? `<span class="px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 font-bold">Duduk Meja Lain: ${cross.length} Orang</span>` : ''}
+                ${cross.length > 0 ? `<span class="px-2.5 py-1 rounded bg-slate-100 text-slate-700 border border-slate-300 font-bold">Meja Simbolik: ${cross.length} Giliran</span>` : ''}
             </div>
         `;
     }
@@ -662,9 +662,9 @@ function openDetailModal(tableKey) {
 
     if (cross.length > 0) {
         rowsHtml += `
-            <tr class="bg-indigo-50 border-y border-indigo-200">
-                <td colspan="5" class="px-4 py-2 text-xs font-bold text-indigo-900 uppercase tracking-wider">
-                    Bahagian 2: Penerima Giliran Pentas Meja Ini (Namun Duduk di Meja Lain Kerana Giliran Terawal)
+            <tr class="bg-slate-100 border-y border-slate-300">
+                <td colspan="5" class="px-4 py-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Bahagian 2: Meja Anugerah Simbolik (TIDAK DUDUK DI SINI - Rujuk Meja Utama Mereka)
                 </td>
             </tr>
         `;
@@ -675,28 +675,28 @@ function openDetailModal(tableKey) {
             const isSelesai = !!r.naik_pentas_status;
 
             rowsHtml += `
-                <tr class="bg-indigo-50/40 hover:bg-indigo-50 transition-colors border-b border-indigo-100">
-                    <td class="px-3 py-3 text-center text-xs font-bold text-indigo-400">
+                <tr class="bg-slate-50/50 hover:bg-slate-100 transition-colors border-b border-slate-200 border-dashed">
+                    <td class="px-3 py-3 text-center text-xs font-bold text-slate-400">
                         -
                     </td>
-                    <td class="px-3 py-3 text-center text-xs font-bold text-indigo-700">
-                        <span class="px-2 py-1 bg-indigo-100 rounded text-indigo-900 font-mono">#${escapeHtml(r.bil)}</span>
+                    <td class="px-3 py-3 text-center text-xs font-bold text-slate-700">
+                        <span class="px-2 py-1 bg-slate-200 rounded text-slate-800 font-mono">#${escapeHtml(r.bil)}</span>
                     </td>
-                    <td class="px-4 py-3 text-sm">
-                        <div class="font-bold text-gray-900">${escapeHtml(r.nama)}</div>
-                        <div class="text-xs text-gray-600">${escapeHtml(r.sekolah)} - ${escapeHtml(r.kategori || '')}</div>
-                        <div class="mt-1 text-xs font-bold text-blue-700 bg-white px-2 py-1 rounded border border-blue-200 inline-flex items-center gap-1">
-                            <span>🪑 Tempat Duduk Peserta:</span>
+                    <td class="px-4 py-3 text-sm opacity-80">
+                        <div class="font-bold text-gray-800">${escapeHtml(r.nama)}</div>
+                        <div class="text-xs text-gray-500">${escapeHtml(r.sekolah)} - ${escapeHtml(r.kategori || '')}</div>
+                        <div class="mt-1.5 text-[11px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200 inline-flex items-center gap-1">
+                            <span>⚠️ Kekal Duduk Fizikal Di:</span>
                             <span class="underline">${escapeHtml(parent.primaryTable)}</span>
-                            <span class="text-gray-500 font-normal">(Giliran #${escapeHtml(parent.primaryBil)})</span>
+                            <span class="text-red-400 font-normal">(Giliran #${escapeHtml(parent.primaryBil)})</span>
                         </div>
                     </td>
-                    <td class="px-4 py-3 text-sm whitespace-nowrap">
+                    <td class="px-4 py-3 text-sm whitespace-nowrap opacity-80">
                         <span class="px-2 py-0.5 text-xs font-bold rounded-full ${parent.attendance_status === 'HADIR' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'}">
                             ${escapeHtml(parent.attendance_status)}
                         </span>
                     </td>
-                    <td class="px-3 py-3 text-center text-xs">
+                    <td class="px-3 py-3 text-center text-xs opacity-80">
                         <span class="px-2 py-0.5 text-[11px] rounded font-bold ${isSelesai ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}">
                             ${isSelesai ? 'Selesai Pentas' : 'Belum Selesai'}
                         </span>

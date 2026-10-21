@@ -363,25 +363,33 @@ function renderTables() {
         const totalAwards = personRecords.length;
         const isPrimaryAward = (row.bil === primaryRecord.bil);
         const primaryTable = primaryRecord.no_meja ? primaryRecord.no_meja : '-';
+        const awardIndex = personRecords.findIndex(r => r.bil === row.bil) + 1;
 
         let tableDisplayHtml = '';
         if (totalAwards > 1) {
-            tableDisplayHtml = `
-                <div class="mt-1 flex flex-col gap-0.5">
-                    <span class="text-xs font-bold text-blue-700 flex items-center gap-1">
-                        <span>🪑 Meja Utama Duduk:</span>
-                        <span class="bg-blue-100 text-blue-900 px-1.5 py-0.2 rounded font-mono">${escapeHtml(primaryTable)}</span>
-                    </span>
-                    <span class="text-[11px] text-gray-500">
-                        Meja Giliran Ini: <strong>${escapeHtml(row.no_meja || '-')}</strong>
-                        ${isPrimaryAward ? '<span class="text-blue-600 font-bold ml-1">(Giliran Terawal)</span>' : ''}
-                    </span>
-                </div>
-            `;
+            if (isPrimaryAward) {
+                tableDisplayHtml = `
+                    <div class="mt-1.5 flex flex-col gap-1 p-2 bg-blue-50 border border-blue-200 rounded">
+                        <span class="text-xs font-bold text-blue-800 flex items-center gap-1.5">
+                            🪑 Meja Duduk Fizikal (Utama):
+                            <span class="bg-blue-600 text-white px-2 py-0.5 rounded shadow-sm">${escapeHtml(primaryTable)}</span>
+                        </span>
+                    </div>
+                `;
+            } else {
+                tableDisplayHtml = `
+                    <div class="mt-1.5 flex flex-col gap-1 p-2 bg-slate-50 border border-dashed border-slate-300 rounded">
+                        <div class="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                            ⚠️ Meja Anugerah (Simbolik): <span class="bg-slate-200 px-1.5 py-0.5 rounded">${escapeHtml(row.no_meja || '-')}</span>
+                        </div>
+                        <div class="text-[10px] text-red-600 font-semibold italic">Kekal di meja utama: ${escapeHtml(primaryTable)}</div>
+                    </div>
+                `;
+            }
         } else {
             tableDisplayHtml = `
-                <div class="mt-1 text-xs font-semibold text-blue-600">
-                    Meja Duduk: <span class="font-bold text-blue-800">${escapeHtml(row.no_meja || '-')}</span>
+                <div class="mt-1.5 text-[11px] font-semibold text-blue-700 flex items-center gap-1">
+                    🪑 Meja Duduk Fizikal: <span class="font-bold text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded">${escapeHtml(row.no_meja || '-')}</span>
                 </div>
             `;
         }
@@ -417,13 +425,13 @@ function renderTables() {
         const notPresentMsg = !isHadir ? `<span class="text-[9px] md:text-[10px] text-gray-500 mt-1 italic block text-center leading-tight">Belum lapor<br>hadir</span>` : '';
         const disabledAttr = !isHadir ? 'disabled' : '';
         
-        const giliranCircle = `<div class="inline-flex h-10 w-10 ${isNaikPentas ? 'bg-green-200 border-green-400 text-green-800' : 'bg-blue-100 border-blue-300 text-blue-800'} rounded-full items-center justify-center border-2 text-sm font-black mx-auto mb-2">
+        const giliranCircle = `<div class="inline-flex h-10 w-10 ${isNaikPentas ? 'bg-green-200 border-green-400 text-green-800' : 'bg-blue-100 border-blue-300 text-blue-800'} rounded-full items-center justify-center border-2 text-sm font-black mx-auto mb-2 shadow-sm">
                         ${escapeHtml(row.bil)}
                     </div>`;
 
         const multiAwardTag = totalAwards > 1 ? `
             <span class="inline-flex items-center text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-300 ml-1">
-                ★ ${totalAwards} Anugerah
+                ★ Anugerah ${awardIndex}/${totalAwards}
             </span>
         ` : '';
 
@@ -433,7 +441,7 @@ function renderTables() {
                 <!-- MOBILE VIEW (2 Columns) -->
                 <td class="md:hidden px-2 py-4 align-top w-20 text-center border-r border-gray-100 bg-gray-50/50">
                     ${giliranCircle}
-                    <div id="pentas-container-mb-${row.id}" class="flex flex-col items-center justify-center">
+                    <div id="pentas-container-mb-${row.id}" class="flex flex-col items-center justify-center mt-2">
                         <input type="checkbox" 
                             id="pentas-check-mb-${row.id}" 
                             class="pentas-checkbox" 
@@ -462,7 +470,7 @@ function renderTables() {
 
                 <!-- DESKTOP VIEW (4 Columns) -->
                 <td class="hidden md:table-cell px-4 py-4 whitespace-nowrap text-center align-middle">
-                    <div class="inline-flex h-10 w-10 ${isNaikPentas ? 'bg-green-200 border-green-400 text-green-800' : 'bg-blue-100 border-blue-300 text-blue-800'} rounded-full items-center justify-center border-2 text-sm font-black">
+                    <div class="inline-flex h-10 w-10 ${isNaikPentas ? 'bg-green-200 border-green-400 text-green-800' : 'bg-blue-100 border-blue-300 text-blue-800'} rounded-full items-center justify-center border-2 text-sm font-black shadow-sm">
                         ${escapeHtml(row.bil)}
                     </div>
                 </td>
