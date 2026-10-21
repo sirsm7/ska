@@ -289,7 +289,8 @@ function processDataView() {
         }
     }
     
-    renderResults(dataToRender, query, category);
+    // PEMBAIKAN: Betulkan pembolehubah category -> selectedKat
+    renderResults(dataToRender, query, selectedKat);
 }
 
 function renderResults(recipients, query, category) {
