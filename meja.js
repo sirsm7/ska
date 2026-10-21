@@ -6,7 +6,6 @@ let allRecipients = [];
 let groupedTables = {};
 let activeTableShortcut = null;
 
-// DOM Elements
 const searchTableInput = document.getElementById('searchTableInput');
 const resetSearchBtn = document.getElementById('resetSearchBtn');
 const filterStatus = document.getElementById('filterStatus');
@@ -15,14 +14,12 @@ const loadingIndicator = document.getElementById('loadingIndicator');
 const emptyIndicator = document.getElementById('emptyIndicator');
 const tableShortcutsContainer = document.getElementById('tableShortcutsContainer');
 
-// Stats Elements
 const statTotalTables = document.getElementById('statTotalTables');
 const statFullTables = document.getElementById('statFullTables');
 const statPartialTables = document.getElementById('statPartialTables');
 const statEmptyTables = document.getElementById('statEmptyTables');
 const statTotalParticipants = document.getElementById('statTotalParticipants');
 
-// Detail Modal Elements
 const tableModal = document.getElementById('tableModal');
 const modalTableName = document.getElementById('modalTableName');
 const modalTableStats = document.getElementById('modalTableStats');
@@ -181,6 +178,10 @@ function groupDataByTable() {
             primaryTableKey = fallback ? fallback.no_meja.trim().toUpperCase() : 'TANPA MEJA'; 
         }
 
+        if (primaryTableKey !== 'TANPA MEJA' && !primaryTableKey.startsWith('MEJA')) {
+            primaryTableKey = 'MEJA ' + primaryTableKey;
+        }
+
         const isAnyHadir = records.some(r => r.attendance_status === 'HADIR');
         const isAllTidakHadir = records.length > 0 && records.every(r => r.attendance_status === 'TIDAK HADIR');
 
@@ -227,7 +228,11 @@ function groupDataByTable() {
     });
 
     allRecipients.forEach(rawRec => {
-        const rawTable = rawRec.no_meja ? rawRec.no_meja.trim().toUpperCase() : 'TANPA MEJA'; 
+        let rawTable = rawRec.no_meja ? rawRec.no_meja.trim().toUpperCase() : 'TANPA MEJA';
+        if (rawTable !== 'TANPA MEJA' && !rawTable.startsWith('MEJA')) {
+            rawTable = 'MEJA ' + rawTable;
+        }
+
         const pKey = getPersonKey(rawRec.nama, rawRec.sekolah);
         const parentPerson = uniquePersons.find(p => p.pKey === pKey);
 
@@ -238,7 +243,7 @@ function groupDataByTable() {
                     crossTableParticipants: []
                 };
             }
-            const alreadyAdded = groupedTables[rawTable].crossTableParticipants.some(c => c.id === rawRec.id);
+            const alreadyAdded = groupedTables[rawTable].crossTableParticipants.some(c => c.rawRecord.id === rawRec.id);
             if (!alreadyAdded) {
                 groupedTables[rawTable].crossTableParticipants.push({
                     rawRecord: rawRec,
@@ -497,8 +502,8 @@ function renderTableGrid() {
         }
 
         const crossNotice = cross.length > 0 ? `
-            <div class="mt-2 text-[11px] bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200 flex items-center justify-between">
-                <span>Penerima giliran lain:</span>
+            <div class="mt-2 text-[11px] bg-amber-50 text-amber-900 px-2 py-1 rounded border border-amber-200 flex items-center justify-between">
+                <span>🔔 Penerima hadiah meja ini:</span>
                 <span class="font-bold">${cross.length} orang duduk di meja lain</span>
             </div>
         ` : '';
@@ -579,7 +584,7 @@ function openDetailModal(tableKey) {
                 <span class="px-2.5 py-1 rounded bg-purple-50 text-purple-700 font-bold">Wakil: ${wakil}</span>
                 <span class="px-2.5 py-1 rounded bg-rose-50 text-rose-700 font-bold">Tidak Hadir: ${tidakHadir}</span>
                 <span class="px-2.5 py-1 rounded bg-amber-50 text-amber-700 font-bold">Belum Hadir: ${belumHadir}</span>
-                ${cross.length > 0 ? `<span class="px-2.5 py-1 rounded bg-slate-100 text-slate-700 border border-slate-300 font-bold">Meja Simbolik: ${cross.length} Giliran</span>` : ''}
+                ${cross.length > 0 ? `<span class="px-2.5 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300 font-bold">🔔 Panggil Dari Meja Lain: ${cross.length} Orang</span>` : ''}
             </div>
         `;
     }
@@ -588,7 +593,7 @@ function openDetailModal(tableKey) {
 
     rowsHtml += `
         <tr class="bg-blue-50 border-b border-blue-200">
-            <td colspan="5" class="px-4 py-2 text-xs font-bold text-blue-900 uppercase tracking-wider">
+            <td colspan="5" class="px-4 py-2.5 text-xs font-bold text-blue-900 uppercase tracking-wider">
                 Bahagian 1: Peserta Yang Duduk Di Meja Ini (Kapasiti Kerusi Fizikal)
             </td>
         </tr>
@@ -628,7 +633,7 @@ function openDetailModal(tableKey) {
 
             const multiNotice = p.totalAwards > 1 ? `
                 <div class="text-[10px] text-amber-700 font-bold mt-1 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
-                    ★ ${p.totalAwards} Anugerah (Duduk berasaskan Giliran Terawal #${escapeHtml(p.primaryBil)})
+                    ★ ${p.totalAwards} Anugerah (Duduk di meja ini berasaskan Giliran Terawal #${escapeHtml(p.primaryBil)})
                 </div>
             ` : '';
 
@@ -662,9 +667,10 @@ function openDetailModal(tableKey) {
 
     if (cross.length > 0) {
         rowsHtml += `
-            <tr class="bg-slate-100 border-y border-slate-300">
-                <td colspan="5" class="px-4 py-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Bahagian 2: Meja Anugerah Simbolik (TIDAK DUDUK DI SINI - Rujuk Meja Utama Mereka)
+            <tr class="bg-amber-100/80 border-y-2 border-amber-300">
+                <td colspan="5" class="px-4 py-2.5 text-xs font-black text-amber-950 uppercase tracking-wider flex items-center justify-between">
+                    <span>Bahagian 2: Senarai Semakan Pengurus Peserta (Penerima Hadiah Meja Ini Yang Duduk Di Meja Lain)</span>
+                    <span class="text-[11px] bg-amber-200 px-2 py-0.5 rounded border border-amber-400 font-bold">Tindakan: Panggil Dari Meja Duduk Fizikal</span>
                 </td>
             </tr>
         `;
@@ -675,30 +681,31 @@ function openDetailModal(tableKey) {
             const isSelesai = !!r.naik_pentas_status;
 
             rowsHtml += `
-                <tr class="bg-slate-50/50 hover:bg-slate-100 transition-colors border-b border-slate-200 border-dashed">
-                    <td class="px-3 py-3 text-center text-xs font-bold text-slate-400">
+                <tr class="bg-amber-50/40 hover:bg-amber-50 transition-colors border-b border-amber-200">
+                    <td class="px-3 py-3 text-center text-xs font-bold text-amber-600">
                         -
                     </td>
-                    <td class="px-3 py-3 text-center text-xs font-bold text-slate-700">
-                        <span class="px-2 py-1 bg-slate-200 rounded text-slate-800 font-mono">#${escapeHtml(r.bil)}</span>
+                    <td class="px-3 py-3 text-center text-xs font-bold text-gray-800">
+                        <span class="px-2 py-1 bg-gray-800 text-white rounded font-mono">#${escapeHtml(r.bil)}</span>
                     </td>
-                    <td class="px-4 py-3 text-sm opacity-80">
-                        <div class="font-bold text-gray-800">${escapeHtml(r.nama)}</div>
-                        <div class="text-xs text-gray-500">${escapeHtml(r.sekolah)} - ${escapeHtml(r.kategori || '')}</div>
-                        <div class="mt-1.5 text-[11px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200 inline-flex items-center gap-1">
-                            <span>⚠️ Kekal Duduk Fizikal Di:</span>
-                            <span class="underline">${escapeHtml(parent.primaryTable)}</span>
-                            <span class="text-red-400 font-normal">(Giliran #${escapeHtml(parent.primaryBil)})</span>
+                    <td class="px-4 py-3 text-sm">
+                        <div class="font-bold text-gray-900">${escapeHtml(r.nama)}</div>
+                        <div class="text-xs text-gray-600">${escapeHtml(r.sekolah)} - ${escapeHtml(r.kategori || '')}</div>
+                        <div class="mt-1.5 text-xs font-bold text-amber-900 bg-amber-100 px-2.5 py-1 rounded border border-amber-300 inline-flex flex-wrap items-center gap-1.5 shadow-xs">
+                            <span>🔔 PENGURUS PESERTA:</span>
+                            <span>Panggil peserta dari tempat duduk:</span>
+                            <span class="bg-blue-600 text-white px-2 py-0.2 rounded font-black">${escapeHtml(parent.primaryTable)}</span>
+                            <span class="text-slate-600 font-normal text-[11px]">(Giliran Hadiah Terawal #${escapeHtml(parent.primaryBil)})</span>
                         </div>
                     </td>
-                    <td class="px-4 py-3 text-sm whitespace-nowrap opacity-80">
-                        <span class="px-2 py-0.5 text-xs font-bold rounded-full ${parent.attendance_status === 'HADIR' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'}">
+                    <td class="px-4 py-3 text-sm whitespace-nowrap">
+                        <span class="px-2 py-0.5 text-xs font-bold rounded-full ${parent.attendance_status === 'HADIR' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-gray-100 text-gray-700'}">
                             ${escapeHtml(parent.attendance_status)}
                         </span>
                     </td>
-                    <td class="px-3 py-3 text-center text-xs opacity-80">
-                        <span class="px-2 py-0.5 text-[11px] rounded font-bold ${isSelesai ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}">
-                            ${isSelesai ? 'Selesai Pentas' : 'Belum Selesai'}
+                    <td class="px-3 py-3 text-center text-xs">
+                        <span class="px-2 py-0.5 text-[11px] rounded font-bold ${isSelesai ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-gray-100 text-gray-600'}">
+                            ${isSelesai ? `Selesai Pentas #${escapeHtml(r.bil)}` : 'Belum Naik Pentas'}
                         </span>
                     </td>
                 </tr>

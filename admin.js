@@ -5,7 +5,6 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let allRecipients = [];
 let personProfilesMap = new Map();
 
-// DOM Elements
 const loginScreen = document.getElementById('loginScreen');
 const mainContent = document.getElementById('mainContent');
 const passwordInput = document.getElementById('passwordInput');
@@ -366,6 +365,9 @@ function renderTables() {
         const primaryTableFormatted = (rawPrimaryTable && rawPrimaryTable !== '-')
             ? (rawPrimaryTable.toString().toUpperCase().startsWith('MEJA') ? rawPrimaryTable : 'MEJA ' + rawPrimaryTable)
             : '-';
+        const currentAwardTable = (row.no_meja && row.no_meja.toString().trim() !== '')
+            ? (row.no_meja.toString().toUpperCase().startsWith('MEJA') ? row.no_meja : 'MEJA ' + row.no_meja)
+            : '-';
         const awardIndex = personRecords.findIndex(r => r.bil === row.bil) + 1;
 
         let tableDisplayHtml = '';
@@ -373,29 +375,34 @@ function renderTables() {
             if (isPrimaryAward) {
                 tableDisplayHtml = `
                     <div class="mt-1.5 flex flex-col gap-1 p-2 bg-blue-50 border border-blue-200 rounded">
-                        <span class="text-xs font-bold text-blue-800 flex items-center gap-1.5">
-                            🪑 Meja Duduk Fizikal (Utama):
+                        <div class="flex items-center gap-1.5 text-xs font-bold text-blue-900">
+                            <span>🪑 Meja Duduk Fizikal (Utama):</span>
                             <span class="bg-blue-600 text-white px-2 py-0.5 rounded shadow-sm">${escapeHtml(primaryTableFormatted)}</span>
-                        </span>
+                        </div>
+                        <span class="text-[11px] text-blue-700">Peserta duduk di sini untuk keseluruhan majlis.</span>
                     </div>
                 `;
             } else {
                 tableDisplayHtml = `
-                    <div class="mt-1.5 flex flex-col gap-1 p-2 bg-slate-50 border border-dashed border-slate-300 rounded">
-                        <div class="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                            🪑 Meja Duduk: <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">${escapeHtml(primaryTableFormatted)}</span>
+                    <div class="mt-1.5 flex flex-col gap-1.5 p-2 bg-amber-50 border border-amber-300 rounded">
+                        <div class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-gray-800">
+                            <span>NO MEJA:</span>
+                            <span class="bg-gray-800 text-white px-2 py-0.5 rounded font-black">${escapeHtml(currentAwardTable)}</span>
+                            <span class="inline-flex items-center text-xs font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded border border-blue-300">
+                                🪑 Duduk di: ${escapeHtml(primaryTableFormatted)}
+                            </span>
                         </div>
-                        <div class="text-[10px] text-slate-500 font-medium italic">Kekal di meja utama ${escapeHtml(primaryTableFormatted)} (Giliran #${escapeHtml(primaryRecord.bil)})</div>
+                        <div class="text-[11px] font-bold text-amber-900 bg-amber-100 px-2 py-1 rounded border border-amber-300 flex items-center gap-1">
+                            <span>🔔 PENGURUS PESERTA:</span>
+                            <span>Peserta berada di <strong>${escapeHtml(primaryTableFormatted)}</strong>. Panggil peserta dari meja tersebut untuk naik pentas giliran ini.</span>
+                        </div>
                     </div>
                 `;
             }
         } else {
-            const singleTableFormatted = (row.no_meja && row.no_meja.toString().trim() !== '')
-                ? (row.no_meja.toString().toUpperCase().startsWith('MEJA') ? row.no_meja : 'MEJA ' + row.no_meja)
-                : '-';
             tableDisplayHtml = `
                 <div class="mt-1.5 text-[11px] font-semibold text-blue-700 flex items-center gap-1">
-                    🪑 Meja Duduk Fizikal: <span class="font-bold text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded">${escapeHtml(singleTableFormatted)}</span>
+                    🪑 Meja Duduk Fizikal: <span class="font-bold text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded">${escapeHtml(currentAwardTable)}</span>
                 </div>
             `;
         }
@@ -427,7 +434,9 @@ function renderTables() {
 
         const isNaikPentas = !!row.naik_pentas_status;
         const rowClass = isNaikPentas ? 'naik-pentas-row' : 'hover:bg-gray-50 transition-colors';
-        const pentasLabel = isNaikPentas ? '<span class="text-[10px] md:text-xs font-bold text-green-600 block mt-1">SELESAI</span>' : '';
+        const pentasLabel = isNaikPentas 
+            ? `<span class="text-[10px] md:text-xs font-bold text-green-700 block mt-1">SELESAI #${escapeHtml(row.bil)}</span>` 
+            : (totalAwards > 1 ? `<span class="text-[9px] text-gray-500 block mt-0.5 font-medium">Pentas ${awardIndex}/${totalAwards}</span>` : '');
         const notPresentMsg = !isHadir ? `<span class="text-[9px] md:text-[10px] text-gray-500 mt-1 italic block text-center leading-tight">Belum lapor<br>hadir</span>` : '';
         const disabledAttr = !isHadir ? 'disabled' : '';
         
@@ -444,7 +453,6 @@ function renderTables() {
         html += `
             <tr id="row-${row.id}" class="${rowClass} border-b border-gray-100">
                 
-                <!-- MOBILE VIEW (2 Columns) -->
                 <td class="md:hidden px-2 py-4 align-top w-20 text-center border-r border-gray-100 bg-gray-50/50">
                     ${giliranCircle}
                     <div id="pentas-container-mb-${row.id}" class="flex flex-col items-center justify-center mt-2">
@@ -474,7 +482,6 @@ function renderTables() {
                     </div>
                 </td>
 
-                <!-- DESKTOP VIEW (4 Columns) -->
                 <td class="hidden md:table-cell px-4 py-4 whitespace-nowrap text-center align-middle">
                     <div class="inline-flex h-10 w-10 ${isNaikPentas ? 'bg-green-200 border-green-400 text-green-800' : 'bg-blue-100 border-blue-300 text-blue-800'} rounded-full items-center justify-center border-2 text-sm font-black shadow-sm">
                         ${escapeHtml(row.bil)}

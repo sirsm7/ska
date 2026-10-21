@@ -430,13 +430,25 @@ function renderResults(recipients, query, category) {
                         </div>
                     `;
                 } else {
+                    const currentAwardTable = (row.no_meja && row.no_meja.toString().trim() !== '') 
+                        ? (row.no_meja.toString().toUpperCase().startsWith('MEJA') ? escapeHtml(row.no_meja) : 'MEJA ' + escapeHtml(row.no_meja))
+                        : '-';
+
                     seatingHtml = `
                         <div class="subsequent-seat-tag rounded-lg p-2.5 mb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2.5">
                                 <span class="text-xl">🪑</span>
                                 <div>
-                                    <div class="text-xs font-bold text-slate-700">Meja Duduk: <span class="text-lg font-black text-blue-900">${primaryTableLabel}</span></div>
-                                    <div class="text-[11px] text-slate-500 font-medium">Sila kekal di meja utama <strong class="text-blue-900">${primaryTableLabel}</strong> (Giliran #${escapeHtml(profile.primaryBil)})</div>
+                                    <div class="text-xs font-bold text-slate-800 flex flex-wrap items-center gap-1.5">
+                                        <span>NO MEJA:</span>
+                                        <span class="text-lg font-black text-gray-900">${currentAwardTable}</span>
+                                        <span class="inline-flex items-center text-xs font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded border border-blue-200">
+                                            Duduk di: ${primaryTableLabel}
+                                        </span>
+                                    </div>
+                                    <div class="text-[11px] text-slate-500 font-medium mt-0.5">
+                                        Sila kekal di meja utama <strong class="text-blue-900">${primaryTableLabel}</strong> (Giliran #${escapeHtml(profile.primaryBil)})
+                                    </div>
                                 </div>
                             </div>
                             <div class="flex items-center gap-1.5 text-[11px] mt-2 sm:mt-0">
@@ -608,7 +620,7 @@ async function markTidakHadir(name, sekolah) {
     } catch (error) {
         console.error("Ralat tanda tidak hadir:", error);
         showError("Gagal mengemaskini status tidak hadir.");
-        fetchAllData();
+        fetchAllData(); 
     }
 }
 
