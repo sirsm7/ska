@@ -174,11 +174,11 @@ function groupDataByTable() {
         records.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
 
         const primaryRec = records[0];
-        let primaryTableKey = primaryRec.no_meja ? primaryRec.no_meja.trim().toUpperCase() : ''; // Diseragamkan
+        let primaryTableKey = primaryRec.no_meja ? primaryRec.no_meja.trim().toUpperCase() : ''; 
 
         if (!primaryTableKey) {
             const fallback = records.find(r => r.no_meja && r.no_meja.trim() !== '');
-            primaryTableKey = fallback ? fallback.no_meja.trim().toUpperCase() : 'TANPA MEJA'; // Diseragamkan
+            primaryTableKey = fallback ? fallback.no_meja.trim().toUpperCase() : 'TANPA MEJA'; 
         }
 
         const isAnyHadir = records.some(r => r.attendance_status === 'HADIR');
@@ -227,7 +227,7 @@ function groupDataByTable() {
     });
 
     allRecipients.forEach(rawRec => {
-        const rawTable = rawRec.no_meja ? rawRec.no_meja.trim().toUpperCase() : 'TANPA MEJA'; // Diseragamkan
+        const rawTable = rawRec.no_meja ? rawRec.no_meja.trim().toUpperCase() : 'TANPA MEJA'; 
         const pKey = getPersonKey(rawRec.nama, rawRec.sekolah);
         const parentPerson = uniquePersons.find(p => p.pKey === pKey);
 
@@ -264,13 +264,17 @@ function updateOverviewCards() {
     tableKeys.forEach(tableKey => {
         const tableData = groupedTables[tableKey];
         const seated = tableData.seatedParticipants;
+        const cross = tableData.crossTableParticipants;
+        
         const totalInTable = seated.length;
         const hadirCount = seated.filter(p => p.attendance_status === 'HADIR').length;
+        const crossHadirCount = cross.filter(c => c.parentPerson.attendance_status === 'HADIR').length;
+        
         totalSeatedPersons += totalInTable;
 
         if (totalInTable > 0 && hadirCount === totalInTable) {
             full++;
-        } else if (hadirCount > 0 && hadirCount < totalInTable) {
+        } else if (hadirCount > 0 || crossHadirCount > 0) {
             partial++;
         } else {
             empty++;
@@ -316,8 +320,12 @@ function renderTableShortcuts() {
     sortedTableKeys.forEach(tableKey => {
         const tableData = groupedTables[tableKey];
         const seated = tableData.seatedParticipants;
+        const cross = tableData.crossTableParticipants;
+        
         const total = seated.length;
         const hadir = seated.filter(p => p.attendance_status === 'HADIR').length;
+        const crossHadir = cross.filter(c => c.parentPerson.attendance_status === 'HADIR').length;
+        
         const isFull = (total > 0 && hadir === total);
         const isActive = (activeTableShortcut === tableKey);
 
@@ -342,7 +350,7 @@ function renderTableShortcuts() {
                 pillClass = 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-300 font-medium';
                 badgeColor = 'bg-gray-200 text-gray-600';
             }
-            statusIcon = `<span class="w-2 h-2 rounded-full ${hadir > 0 ? 'bg-amber-400' : 'bg-gray-300'} inline-block flex-shrink-0"></span>`;
+            statusIcon = `<span class="w-2 h-2 rounded-full ${(hadir > 0 || crossHadir > 0) ? 'bg-amber-400' : 'bg-gray-300'} inline-block flex-shrink-0"></span>`;
         }
 
         const safeKey = escapeHtml(tableKey);
@@ -399,11 +407,14 @@ function renderTableGrid() {
         const tableData = groupedTables[tableKey];
         const seated = tableData.seatedParticipants;
         const cross = tableData.crossTableParticipants;
+        
         const total = seated.length;
         const hadir = seated.filter(p => p.attendance_status === 'HADIR').length;
+        const crossHadir = cross.filter(c => c.parentPerson.attendance_status === 'HADIR').length;
+        
         const isFull = (total > 0 && hadir === total);
-        const isEmpty = (hadir === 0);
-        const isPartial = (hadir > 0 && hadir < total);
+        const isEmpty = (hadir === 0 && crossHadir === 0);
+        const isPartial = (!isFull && !isEmpty);
 
         if (activeTableShortcut && tableKey !== activeTableShortcut) return;
 
@@ -439,7 +450,11 @@ function renderTableGrid() {
             progressBg = 'bg-emerald-500';
         } else if (isPartial) {
             borderAccent = 'border-l-4 border-amber-500';
-            statusBadge = '<span class="px-2 py-0.5 text-xs font-semibold rounded bg-amber-100 text-amber-800">Sebahagian Hadir</span>';
+            if (hadir === 0 && crossHadir > 0) {
+                statusBadge = '<span class="px-2 py-0.5 text-[11px] font-bold rounded bg-amber-100 text-amber-800">Hadir (Duduk Meja Lain)</span>';
+            } else {
+                statusBadge = '<span class="px-2 py-0.5 text-xs font-semibold rounded bg-amber-100 text-amber-800">Sebahagian Hadir</span>';
+            }
             progressBg = 'bg-amber-500';
         }
 
