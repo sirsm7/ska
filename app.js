@@ -216,14 +216,20 @@ function updateCounts(filteredDataSet) {
     let belum = 0;
     let tidakHadir = 0;
 
+    let belumTabCount = 0;
+    let telahTabCount = 0;
+
     filteredDataSet.forEach(r => {
         if (r.attendance_status === 'HADIR') {
             if (r.attendance_type === 'WAKIL') wakil++;
             else hadir++;
+            telahTabCount++;
         } else if (r.attendance_status === 'TIDAK HADIR') {
             tidakHadir++;
+            belumTabCount++; // Tidak hadir masih dianggap dalam tab 'belum' untuk dipaparkan / dikemaskini
         } else {
             belum++; 
+            belumTabCount++;
         }
     });
 
@@ -232,6 +238,9 @@ function updateCounts(filteredDataSet) {
     if (statWakil) statWakil.textContent = wakil;
     if (statTidakHadir) statTidakHadir.textContent = tidakHadir;
     if (statBelum) statBelum.textContent = belum;
+    
+    if (countBelum && (!searchInput || !searchInput.value.trim())) countBelum.textContent = belumTabCount;
+    if (countTelah && (!searchInput || !searchInput.value.trim())) countTelah.textContent = telahTabCount;
 }
 
 function processDataView() {
@@ -299,8 +308,6 @@ function renderResults(recipients, query, category) {
                     <p class="text-sm text-yellow-800 font-medium">${msg}</p>
                 </div>
             </div>`;
-        if (countBelum && currentTab === 'belum' && !query) countBelum.textContent = 0;
-        if (countTelah && currentTab === 'telah' && !query) countTelah.textContent = 0;
         return;
     }
 
@@ -464,7 +471,7 @@ function renderResults(recipients, query, category) {
                             </span>
                             ${isMultiAward ? `
                                 <span class="multi-badge inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold shadow-xs">
-                                    ★ Anugerah ${awardIndex} daripada ${profile.totalAwards}
+                                    ★ Anugerah ${awardIndex} daripada${profile.totalAwards}
                                 </span>
                             ` : ''}
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-700 border border-gray-200">
@@ -491,11 +498,6 @@ function renderResults(recipients, query, category) {
     }
 
     resultsContainer.innerHTML = html;
-
-    if (!query) {
-        if (currentTab === 'belum' && countBelum) countBelum.textContent = totalRenderedRecords;
-        if (currentTab === 'telah' && countTelah) countTelah.textContent = totalRenderedRecords;
-    }
 }
 
 function generateActionButtons(id, name, sekolah, status) {

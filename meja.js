@@ -174,11 +174,11 @@ function groupDataByTable() {
         records.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
 
         const primaryRec = records[0];
-        let primaryTableKey = primaryRec.no_meja ? primaryRec.no_meja.trim() : '';
+        let primaryTableKey = primaryRec.no_meja ? primaryRec.no_meja.trim().toUpperCase() : ''; // Diseragamkan
 
         if (!primaryTableKey) {
             const fallback = records.find(r => r.no_meja && r.no_meja.trim() !== '');
-            primaryTableKey = fallback ? fallback.no_meja.trim() : 'Tanpa Meja';
+            primaryTableKey = fallback ? fallback.no_meja.trim().toUpperCase() : 'TANPA MEJA'; // Diseragamkan
         }
 
         const isAnyHadir = records.some(r => r.attendance_status === 'HADIR');
@@ -216,7 +216,7 @@ function groupDataByTable() {
     });
 
     uniquePersons.forEach(person => {
-        const tKey = person.primaryTable || 'Tanpa Meja';
+        const tKey = person.primaryTable || 'TANPA MEJA';
         if (!groupedTables[tKey]) {
             groupedTables[tKey] = {
                 seatedParticipants: [],
@@ -227,11 +227,11 @@ function groupDataByTable() {
     });
 
     allRecipients.forEach(rawRec => {
-        const rawTable = rawRec.no_meja ? rawRec.no_meja.trim() : 'Tanpa Meja';
+        const rawTable = rawRec.no_meja ? rawRec.no_meja.trim().toUpperCase() : 'TANPA MEJA'; // Diseragamkan
         const pKey = getPersonKey(rawRec.nama, rawRec.sekolah);
         const parentPerson = uniquePersons.find(p => p.pKey === pKey);
 
-        if (parentPerson && parentPerson.primaryTable !== rawTable && rawTable !== 'Tanpa Meja') {
+        if (parentPerson && parentPerson.primaryTable !== rawTable && rawTable !== 'TANPA MEJA') {
             if (!groupedTables[rawTable]) {
                 groupedTables[rawTable] = {
                     seatedParticipants: [],
@@ -288,8 +288,8 @@ function renderTableShortcuts() {
     if (!tableShortcutsContainer) return;
 
     const sortedTableKeys = Object.keys(groupedTables).sort((a, b) => {
-        if (a === 'Tanpa Meja') return 1;
-        if (b === 'Tanpa Meja') return -1;
+        if (a === 'TANPA MEJA') return 1;
+        if (b === 'TANPA MEJA') return -1;
         return naturalSort(a, b);
     });
 
@@ -388,8 +388,8 @@ function renderTableGrid() {
     const selectedFilter = filterStatus ? filterStatus.value : 'ALL';
 
     const sortedTableKeys = Object.keys(groupedTables).sort((a, b) => {
-        if (a === 'Tanpa Meja') return 1;
-        if (b === 'Tanpa Meja') return -1;
+        if (a === 'TANPA MEJA') return 1;
+        if (b === 'TANPA MEJA') return -1;
         return naturalSort(a, b);
     });
 
