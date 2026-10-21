@@ -93,10 +93,6 @@ function getPersonKey(nama, sekolah) {
     return `${(nama || '').trim().toUpperCase()}|||${(sekolah || '').trim().toUpperCase()}`;
 }
 
-function getSafeDomId(nama, sekolah) {
-    return 'act-' + (nama + '_' + sekolah).replace(/[^a-zA-Z0-9]/g, '_');
-}
-
 function showError(msg) {
     if (!errorText || !errorMessage) return;
     errorText.textContent = msg;
@@ -316,9 +312,11 @@ function renderResults(recipients, query, category) {
     }, {});
 
     let html = '';
-    let totalRenderedPersons = 0;
+    let totalRenderedRecords = 0;
 
     for (const [sekolah, records] of Object.entries(groupedBySchool)) {
+        records.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
+
         const hasBelumHadir = records.some(s => s.attendance_status === 'BELUM HADIR');
         
         const btnPukal = hasBelumHadir && currentTab === 'belum' && !query ? 
@@ -348,120 +346,136 @@ function renderResults(recipients, query, category) {
                 <div class="bg-white shadow rounded-b-lg overflow-hidden divide-y divide-gray-200">
         `;
 
-        const personsInSchool = new Map();
-        records.forEach(r => {
-            const pKey = getPersonKey(r.nama, r.sekolah);
-            if (!personsInSchool.has(pKey)) {
-                personsInSchool.set(pKey, []);
-            }
-            personsInSchool.get(pKey).push(r);
-        });
-
-        personsInSchool.forEach((matchedRecords, pKey) => {
-            totalRenderedPersons++;
+        records.forEach(row => {
+            totalRenderedRecords++;
+            const pKey = getPersonKey(row.nama, row.sekolah);
             const profile = personProfilesMap.get(pKey) || {
-                nama: matchedRecords[0].nama,
-                sekolah: matchedRecords[0].sekolah,
-                primaryBil: matchedRecords[0].bil,
-                primaryTable: matchedRecords[0].no_meja || '-',
-                allRecords: matchedRecords,
-                totalAwards: matchedRecords.length,
-                unifiedStatus: matchedRecords[0].attendance_status,
-                attendanceTime: matchedRecords[0].attendance_time,
-                attendanceType: matchedRecords[0].attendance_type,
-                representativeName: matchedRecords[0].representative_name
+                nama: row.nama,
+                sekolah: row.sekolah,
+                primaryBil: row.bil,
+                primaryTable: row.no_meja || '-',
+                allRecords: [row],
+                totalAwards: 1,
+                unifiedStatus: row.attendance_status,
+                attendanceTime: row.attendance_time,
+                attendanceType: row.attendance_type,
+                representativeName: row.representative_name
             };
 
-            const safeNama = profile.nama ? profile.nama.replace(/'/g, "\\'") : '';
-            const safeSekolah = profile.sekolah ? profile.sekolah.replace(/'/g, "\\'") : '';
-            const actionDomId = getSafeDomId(profile.nama, profile.sekolah);
-
-            let statusHtml = '';
-            let actionHtml = '';
-
-            if (profile.unifiedStatus === 'HADIR') {
-                statusHtml = `
-                    <div class="text-green-600 font-bold flex items-center text-sm">
-                        <span class="mr-1.5">🟢</span> Hadir ${formatTime(profile.attendanceTime)}
-                    </div>`;
-                if (profile.attendanceType === 'WAKIL') {
-                    statusHtml = `
-                        <div class="text-purple-600 font-bold flex items-center text-sm mb-1">
-                            <span class="mr-1.5">🟣</span> Wakil Hadir ${formatTime(profile.attendanceTime)}
-                        </div>
-                        <div class="text-xs text-gray-600 font-medium bg-purple-50 px-2.5 py-1 rounded border border-purple-100 inline-block">
-                            Kategori Wakil: <span class="font-bold text-purple-800">${escapeHtml(profile.representativeName || '-')}</span>
-                        </div>`;
-                }
-            } else if (profile.unifiedStatus === 'TIDAK HADIR') {
-                statusHtml = `<div class="text-red-600 font-bold flex items-center text-sm"><span class="mr-1.5">🔴</span> Tidak Hadir</div>`;
-                actionHtml = generateActionButtons(profile.allRecords[0].id, safeNama, safeSekolah, profile.unifiedStatus);
-            } else {
-                statusHtml = `<div class="text-yellow-600 font-bold flex items-center text-sm"><span class="mr-1.5">🟡</span> Belum Hadir</div>`;
-                actionHtml = generateActionButtons(profile.allRecords[0].id, safeNama, safeSekolah, profile.unifiedStatus);
-            }
-
-            let giliransHtml = '';
-            profile.allRecords.forEach(rec => {
-                const isPrimary = (rec.bil === profile.primaryBil);
-                const tableText = rec.no_meja ? `Meja: ${escapeHtml(rec.no_meja)}` : 'Meja: -';
-                const pentasText = rec.naik_pentas_status ? ' [Selesai Pentas]' : '';
-                
-                giliransHtml += `
-                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold ${isPrimary ? 'bg-blue-100 text-blue-900 border border-blue-300' : 'bg-gray-100 text-gray-700 border border-gray-200'}">
-                        <span class="font-mono font-bold">#${escapeHtml(rec.bil)}</span>
-                        <span>(${escapeHtml(rec.kategori || '-')})</span>
-                        <span class="opacity-75 text-[11px]">${tableText}</span>
-                        ${isPrimary ? '<span class="text-[10px] bg-blue-600 text-white font-bold px-1 rounded">UTAMA</span>' : ''}
-                        ${pentasText ? '<span class="text-emerald-700 font-bold text-[10px]">✓</span>' : ''}
-                    </span>
-                `;
-            });
+            const isMultiAward = profile.totalAwards > 1;
+            const isPrimaryAward = (row.bil === profile.primaryBil);
+            const awardIndex = isMultiAward ? (profile.allRecords.findIndex(r => r.bil === row.bil) + 1) : 1;
 
             const primaryTableLabel = (profile.primaryTable && profile.primaryTable !== '-') 
                 ? `${escapeHtml(profile.primaryTable.toString().toUpperCase().startsWith('MEJA') ? profile.primaryTable : 'MEJA ' + profile.primaryTable)}`
                 : 'BELUM DITETAPKAN';
 
-            html += `
-                <div class="p-5 flex flex-col lg:flex-row justify-between items-start lg:items-center hover:bg-gray-50 transition duration-150 gap-4">
-                    <div class="w-full lg:w-2/3">
-                        <div class="flex flex-wrap items-center gap-2 mb-2">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black font-mono bg-blue-100 text-blue-800 border border-blue-300 shadow-xs">
-                                Bil Terawal: #${escapeHtml(profile.primaryBil)}
-                            </span>
-                            ${profile.totalAwards > 1 ? `
-                                <span class="multi-badge inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold shadow-xs">
-                                    ★ ${profile.totalAwards} Anugerah / Giliran
-                                </span>
-                            ` : ''}
-                            <h3 class="text-lg font-bold text-gray-900 ml-1">${escapeHtml(profile.nama)}</h3>
-                        </div>
+            const cardBorderClass = isMultiAward 
+                ? (isPrimaryAward ? 'award-card-first' : 'award-card-subsequent') 
+                : '';
 
-                        <!-- KAD SOROTAN MEJA UTAMA TEMPAT DUDUK -->
-                        <div class="primary-table-card rounded-lg p-3.5 mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full primary-table-badge flex items-center justify-center font-black text-lg flex-shrink-0">
+            const safeNama = row.nama ? row.nama.replace(/'/g, "\\'") : '';
+            const safeSekolah = row.sekolah ? row.sekolah.replace(/'/g, "\\'") : '';
+            const actionDomId = `act-row-${row.id}`;
+
+            let statusHtml = '';
+            let actionHtml = '';
+
+            if (row.attendance_status === 'HADIR') {
+                statusHtml = `
+                    <div class="text-green-600 font-bold flex items-center text-sm">
+                        <span class="mr-1.5">🟢</span> Hadir ${formatTime(row.attendance_time)}
+                    </div>`;
+                if (row.attendance_type === 'WAKIL') {
+                    statusHtml = `
+                        <div class="text-purple-600 font-bold flex items-center text-sm mb-1">
+                            <span class="mr-1.5">🟣</span> Wakil Hadir ${formatTime(row.attendance_time)}
+                        </div>
+                        <div class="text-xs text-gray-600 font-medium bg-purple-50 px-2.5 py-1 rounded border border-purple-100 inline-block">
+                            Kategori Wakil: <span class="font-bold text-purple-800">${escapeHtml(row.representative_name || '-')}</span>
+                        </div>`;
+                }
+            } else if (row.attendance_status === 'TIDAK HADIR') {
+                statusHtml = `<div class="text-red-600 font-bold flex items-center text-sm"><span class="mr-1.5">🔴</span> Tidak Hadir</div>`;
+                actionHtml = generateActionButtons(row.id, safeNama, safeSekolah, row.attendance_status);
+            } else {
+                statusHtml = `<div class="text-yellow-600 font-bold flex items-center text-sm"><span class="mr-1.5">🟡</span> Belum Hadir</div>`;
+                actionHtml = generateActionButtons(row.id, safeNama, safeSekolah, row.attendance_status);
+            }
+
+            let seatingHtml = '';
+            if (isMultiAward) {
+                if (isPrimaryAward) {
+                    seatingHtml = `
+                        <div class="primary-table-card rounded-lg p-3 mb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-9 h-9 rounded-full primary-table-badge flex items-center justify-center font-black text-base flex-shrink-0">
                                     🪑
                                 </div>
                                 <div>
-                                    <span class="text-[11px] font-black tracking-wider text-blue-700 uppercase block">Meja Utama Tempat Duduk Peserta</span>
-                                    <span class="text-xl font-black text-blue-900 tracking-tight">${primaryTableLabel}</span>
+                                    <span class="text-[10px] font-black tracking-wider text-blue-700 uppercase block">Meja Utama Tempat Duduk Peserta</span>
+                                    <span class="text-lg font-black text-blue-900 tracking-tight">${primaryTableLabel}</span>
                                 </div>
                             </div>
-                            ${profile.totalAwards > 1 ? `
-                                <div class="text-xs text-blue-800 bg-white/80 backdrop-blur-xs px-3 py-1.5 rounded-md border border-blue-200 font-medium">
-                                    Duduk di meja giliran terawal: <strong class="text-blue-900">Giliran #${escapeHtml(profile.primaryBil)}</strong>
+                            <div class="text-xs text-blue-800 bg-white/90 px-2.5 py-1 rounded border border-blue-200 font-bold flex items-center gap-1">
+                                <span>★ Giliran Terawal (${awardIndex}/${profile.totalAwards})</span>
+                                <span class="text-[11px] text-blue-600 font-normal">- Peserta duduk di meja ini</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    seatingHtml = `
+                        <div class="subsequent-seat-tag rounded-lg p-2.5 mb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm">ℹ️</span>
+                                <div class="text-xs text-slate-700">
+                                    Tempat duduk fizikal: <strong class="text-blue-900">${primaryTableLabel}</strong> 
+                                    <span class="text-slate-500">(Ditetapkan pada Giliran Terawal #${escapeHtml(profile.primaryBil)})</span>
                                 </div>
+                            </div>
+                            <div class="flex items-center gap-1.5 text-[11px]">
+                                <span class="text-slate-500">Meja Giliran Ini: <strong>${escapeHtml(row.no_meja || '-')}</strong></span>
+                                <span class="text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded border border-amber-300">
+                                    Giliran ${awardIndex}/${profile.totalAwards}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }
+            } else {
+                seatingHtml = `
+                    <div class="mb-2 text-xs font-semibold text-blue-700 flex items-center gap-2">
+                        <span>🪑 Meja Duduk:</span>
+                        <span class="bg-blue-100 text-blue-900 px-2.5 py-0.5 rounded font-bold font-mono text-sm">${escapeHtml(row.no_meja || '-')}</span>
+                    </div>
+                `;
+            }
+
+            const pentasBadge = row.naik_pentas_status 
+                ? '<span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-300 ml-2">✓ Selesai Pentas</span>'
+                : '';
+
+            html += `
+                <div class="p-5 flex flex-col lg:flex-row justify-between items-start lg:items-center hover:bg-gray-50 transition duration-150 gap-4 ${cardBorderClass}">
+                    <div class="w-full lg:w-2/3">
+                        <div class="flex flex-wrap items-center gap-2 mb-1.5">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black font-mono bg-blue-100 text-blue-800 border border-blue-300 shadow-xs">
+                                Giliran #${escapeHtml(row.bil)}
+                            </span>
+                            ${isMultiAward ? `
+                                <span class="multi-badge inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold shadow-xs">
+                                    ★ Anugerah ${awardIndex} daripada ${profile.totalAwards}
+                                </span>
                             ` : ''}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                                ${escapeHtml(row.kategori || '-')}
+                            </span>
+                            ${pentasBadge}
                         </div>
 
-                        <!-- PERINCIAN GILIRAN PENTAS -->
-                        <div class="mb-3">
-                            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Senarai Giliran Naik Pentas:</p>
-                            <div class="flex flex-wrap gap-1.5">
-                                ${giliransHtml}
-                            </div>
-                        </div>
+                        <h3 class="text-lg font-bold text-gray-900 mb-2">${escapeHtml(row.nama)}</h3>
+
+                        ${seatingHtml}
 
                         ${statusHtml}
                     </div>
@@ -479,8 +493,8 @@ function renderResults(recipients, query, category) {
     resultsContainer.innerHTML = html;
 
     if (!query) {
-        if (currentTab === 'belum' && countBelum) countBelum.textContent = totalRenderedPersons;
-        if (currentTab === 'telah' && countTelah) countTelah.textContent = totalRenderedPersons;
+        if (currentTab === 'belum' && countBelum) countBelum.textContent = totalRenderedRecords;
+        if (currentTab === 'telah' && countTelah) countTelah.textContent = totalRenderedRecords;
     }
 }
 
@@ -518,9 +532,6 @@ window.saveWakil = saveWakil;
 window.clearSearch = clearSearch;
 
 async function markHadir(name, sekolah) {
-    const actionDomId = getSafeDomId(name, sekolah);
-    const actionContainer = document.getElementById(actionDomId);
-    if (actionContainer) actionContainer.innerHTML = '<span class="text-blue-600 text-sm font-semibold">Menyimpan kehadiran...</span>';
     const currentTime = new Date().toISOString();
 
     try {
@@ -540,16 +551,12 @@ async function markHadir(name, sekolah) {
     } catch (error) {
         console.error("Ralat tanda hadir:", error);
         showError("Gagal mengemaskini status kehadiran.");
-        if (actionContainer) generateActionButtons('', name, sekolah, 'BELUM HADIR');
     }
 }
 
 async function markTidakHadir(name, sekolah) {
     if (!confirm(`Mengesahkan ${name} sebagai TIDAK HADIR bagi semua giliran anugerah?`)) return;
     
-    const actionDomId = getSafeDomId(name, sekolah);
-    const actionContainer = document.getElementById(actionDomId);
-    if (actionContainer) actionContainer.innerHTML = '<span class="text-red-600 text-sm font-semibold">Menyimpan maklumat...</span>';
     const currentTime = new Date().toISOString();
 
     try {
@@ -569,7 +576,6 @@ async function markTidakHadir(name, sekolah) {
     } catch (error) {
         console.error("Ralat tanda tidak hadir:", error);
         showError("Gagal mengemaskini status tidak hadir.");
-        if (actionContainer) generateActionButtons('', name, sekolah, 'BELUM HADIR');
     }
 }
 
