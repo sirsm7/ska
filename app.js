@@ -387,28 +387,45 @@ function renderResults(recipients, query, category) {
                 ? profile.primaryTable.toString().toUpperCase().replace(/^MEJA\s*/, '')
                 : '-';
 
+            // Penentuan Warna Tema Untuk Kotak 2 & 3
             let statusMejaUtamaText = 'MEJA<br>UTAMA';
             let statusMejaUtamaClass = 'text-blue-700';
+            let box2Bg = 'bg-blue-50';
+            let box2Border = 'border-blue-200';
+            let box3Bg = 'bg-blue-100';
+            let box3Border = 'border-blue-300';
 
             if (isMultiAward && !isPrimaryAward) {
                 statusMejaUtamaText = `DUDUK<br>MEJA ${escapeHtml(primaryTableShort)}`;
-                statusMejaUtamaClass = 'text-amber-600';
+                statusMejaUtamaClass = 'text-amber-700';
+                box2Bg = 'bg-amber-50';
+                box2Border = 'border-amber-200';
+                box3Bg = 'bg-amber-100';
+                box3Border = 'border-amber-300';
             } else if (rawCurrentTable === '-') {
                 statusMejaUtamaText = 'TIADA<br>MEJA';
-                statusMejaUtamaClass = 'text-gray-400';
+                statusMejaUtamaClass = 'text-gray-500';
+                box2Bg = 'bg-gray-50';
+                box2Border = 'border-gray-200';
+                box3Bg = 'bg-gray-100';
+                box3Border = 'border-gray-300';
             }
+
+            let box1Classes = 'border border-slate-200 bg-slate-50 rounded-md';
+            let box2Classes = `border ${box2Border} ${box2Bg} rounded-md`;
+            let box3Classes = `border ${box3Border} ${box3Bg} rounded-md`;
 
             let statusHtml = '';
             let actionHtml = '';
 
             if (row.attendance_status === 'HADIR') {
                 statusHtml = `
-                    <div class="text-green-600 font-bold flex items-center text-sm">
+                    <div class="text-green-600 font-bold flex items-center text-sm mt-1">
                         <span class="mr-1.5">🟢</span> Hadir ${formatTime(row.attendance_time)}
                     </div>`;
                 if (row.attendance_type === 'WAKIL') {
                     statusHtml = `
-                        <div class="text-purple-600 font-bold flex items-center text-sm mb-1">
+                        <div class="text-purple-600 font-bold flex items-center text-sm mt-1 mb-1">
                             <span class="mr-1.5">🟣</span> Wakil Hadir ${formatTime(row.attendance_time)}
                         </div>
                         <div class="text-xs text-gray-600 font-medium bg-purple-50 px-2.5 py-1 rounded border border-purple-100 inline-block">
@@ -433,19 +450,19 @@ function renderResults(recipients, query, category) {
                         
                         <div class="flex flex-col md:flex-row gap-4 w-full lg:w-auto flex-1 items-start">
                             
-                            <!-- Tiga Kotak Maklumat Bersebelahan (Design Baru) -->
+                            <!-- Tiga Kotak Maklumat Bersebelahan (Design Berwarna) -->
                             <div class="flex gap-2 flex-shrink-0">
-                                <div class="border border-slate-700 flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center bg-white p-1">
+                                <div class="flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center p-1 shadow-sm ${box1Classes}">
                                     <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">No<br>Giliran</span>
                                     <span class="text-xl font-black text-slate-800 mt-0.5">${escapeHtml(row.bil)}</span>
                                 </div>
-                                <div class="border border-slate-700 flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center bg-white p-1">
+                                <div class="flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center p-1 shadow-sm ${box2Classes}">
                                     <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">No<br>Meja</span>
                                     <span class="text-base font-black text-slate-800 mt-0.5 break-all leading-tight">${escapeHtml(currentAwardTableShort)}</span>
                                 </div>
-                                <div class="border border-slate-700 flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center bg-white p-1">
+                                <div class="flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center p-1 shadow-sm ${box3Classes}">
                                     <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">Status<br>Meja</span>
-                                    <span class="text-[10px] font-bold ${statusMejaUtamaClass} mt-0.5 leading-tight">${statusMejaUtamaText}</span>
+                                    <span class="text-[10px] font-black ${statusMejaUtamaClass} mt-0.5 leading-tight">${statusMejaUtamaText}</span>
                                 </div>
                             </div>
 
