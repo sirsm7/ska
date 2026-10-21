@@ -4,14 +4,15 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let allRecipients = [];
 let groupedTables = {};
+let activeTableShortcut = null;
 
-// DOM Elements
 const searchTableInput = document.getElementById('searchTableInput');
 const resetSearchBtn = document.getElementById('resetSearchBtn');
 const filterStatus = document.getElementById('filterStatus');
 const tableGrid = document.getElementById('tableGrid');
 const loadingIndicator = document.getElementById('loadingIndicator');
 const emptyIndicator = document.getElementById('emptyIndicator');
+const tableShortcutsContainer = document.getElementById('tableShortcutsContainer');
 
 // Stats Elements
 const statTotalTables = document.getElementById('statTotalTables');
@@ -58,11 +59,13 @@ function setupEventListeners() {
 
     if (searchTableInput) {
         searchTableInput.addEventListener('input', () => {
+            activeTableShortcut = null;
             if (searchTableInput.value.trim().length > 0) {
                 if (resetSearchBtn) resetSearchBtn.classList.remove('hidden');
             } else {
                 if (resetSearchBtn) resetSearchBtn.classList.add('hidden');
             }
+            renderTableShortcuts();
             renderTableGrid();
         });
     }
@@ -70,14 +73,18 @@ function setupEventListeners() {
     if (resetSearchBtn) {
         resetSearchBtn.addEventListener('click', () => {
             searchTableInput.value = '';
+            activeTableShortcut = null;
             resetSearchBtn.classList.add('hidden');
+            renderTableShortcuts();
             renderTableGrid();
             searchTableInput.focus();
         });
     }
 
     if (filterStatus) {
-        filterStatus.addEventListener('change', renderTableGrid);
+        filterStatus.addEventListener('change', () => {
+            renderTableGrid();
+        });
     }
 
     if (closeTableModalBtn) {
@@ -114,6 +121,10 @@ function formatTime(dateString) {
     return new Date(dateString).toLocaleTimeString('en-MY', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
+function naturalSort(a, b) {
+    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+}
+
 async function fetchTableData() {
     if (loadingIndicator) loadingIndicator.classList.remove('hidden');
     if (tableGrid) tableGrid.innerHTML = '';
@@ -130,10 +141,10 @@ async function fetchTableData() {
         allRecipients = data || [];
         groupDataByTable();
         updateOverviewCards();
+        renderTableShortcuts();
         renderTableGrid();
     } catch (err) {
         console.error('Ralat menarik data meja:', err);
-        alert('Gagal memuat turun data penerima dari pelayan.');
     } finally {
         if (loadingIndicator) loadingIndicator.classList.add('hidden');
     }
@@ -152,10 +163,6 @@ function groupDataByTable() {
         }
         groupedTables[tableKey].push(r);
     });
-}
-
-function naturalSort(a, b) {
-    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 }
 
 function updateOverviewCards() {
@@ -185,6 +192,102 @@ function updateOverviewCards() {
     if (statTotalParticipants) statTotalParticipants.textContent = allRecipients.length;
 }
 
+function renderTableShortcuts() {
+    if (!tableShortcutsContainer) return;
+
+    const sortedTableKeys = Object.keys(groupedTables).sort((a, b) => {
+        if (a === 'Tanpa Meja') return 1;
+        if (b === 'Tanpa Meja') return -1;
+        return naturalSort(a, b);
+    });
+
+    if (sortedTableKeys.length === 0) {
+        tableShortcutsContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Tiada data meja tersedia.</span>';
+        return;
+    }
+
+    let shortcutsHtml = '';
+
+    // Butang 'Semua' Meja
+    const isAllActive = !activeTableShortcut;
+    const allBtnClass = isAllActive 
+        ? 'bg-blue-600 text-white border-blue-700 shadow-sm font-bold ring-2 ring-blue-300' 
+        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100 font-medium';
+
+    shortcutsHtml += `
+        <button onclick="clearTableShortcut()" 
+            class="px-3 py-1.5 text-xs rounded-full border transition flex items-center gap-1.5 ${allBtnClass}">
+            <span>Semua</span>
+            <span class="text-[10px] opacity-80 font-mono">(${sortedTableKeys.length})</span>
+        </button>
+    `;
+
+    sortedTableKeys.forEach(tableKey => {
+        const participants = groupedTables[tableKey];
+        const total = participants.length;
+        const hadir = participants.filter(p => p.attendance_status === 'HADIR').length;
+        const isFull = (total > 0 && hadir === total);
+        const isActive = (activeTableShortcut === tableKey);
+
+        let pillClass = '';
+        let badgeColor = '';
+        let statusIcon = '';
+
+        if (isFull) {
+            if (isActive) {
+                pillClass = 'bg-emerald-700 text-white border-emerald-800 shadow-md font-bold ring-2 ring-emerald-300 scale-105';
+                badgeColor = 'bg-emerald-900 text-emerald-100';
+            } else {
+                pillClass = 'bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600 shadow-xs font-semibold';
+                badgeColor = 'bg-emerald-600 text-white';
+            }
+            statusIcon = `<svg class="w-3 h-3 text-white inline-block flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>`;
+        } else {
+            if (isActive) {
+                pillClass = 'bg-blue-600 text-white border-blue-700 shadow-md font-bold ring-2 ring-blue-300 scale-105';
+                badgeColor = 'bg-blue-800 text-blue-100';
+            } else {
+                pillClass = 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-300 font-medium';
+                badgeColor = 'bg-gray-200 text-gray-600';
+            }
+            statusIcon = `<span class="w-2 h-2 rounded-full ${hadir > 0 ? 'bg-amber-400' : 'bg-gray-300'} inline-block flex-shrink-0"></span>`;
+        }
+
+        const safeKey = escapeHtml(tableKey);
+        const escapedArg = escapeHtml(tableKey.replace(/'/g, "\\'"));
+
+        shortcutsHtml += `
+            <button onclick="filterByTableShortcut('${escapedArg}')" 
+                title="${safeKey}: ${hadir}/${total} Hadir ${isFull ? '(Lengkap 100%)' : ''}"
+                class="px-2.5 py-1.5 text-xs rounded-full border transition-all duration-150 flex items-center gap-1.5 ${pillClass}">
+                ${statusIcon}
+                <span class="truncate max-w-[110px]">${safeKey}</span>
+                <span class="text-[10px] px-1.5 py-0.2 rounded-full font-mono ${badgeColor}">
+                    ${hadir}/${total}
+                </span>
+            </button>
+        `;
+    });
+
+    tableShortcutsContainer.innerHTML = shortcutsHtml;
+}
+
+function filterByTableShortcut(tableKey) {
+    if (activeTableShortcut === tableKey) {
+        activeTableShortcut = null;
+    } else {
+        activeTableShortcut = tableKey;
+    }
+    renderTableShortcuts();
+    renderTableGrid();
+}
+
+function clearTableShortcut() {
+    activeTableShortcut = null;
+    renderTableShortcuts();
+    renderTableGrid();
+}
+
 function renderTableGrid() {
     if (!tableGrid) return;
     tableGrid.innerHTML = '';
@@ -209,7 +312,10 @@ function renderTableGrid() {
         const tidakHadir = participants.filter(p => p.attendance_status === 'TIDAK HADIR').length;
         const belumHadir = total - hadir - tidakHadir;
 
-        // Tapis mengikut status
+        // Tapis mengikut pintasan nombor meja aktif jika ada
+        if (activeTableShortcut && tableKey !== activeTableShortcut) return;
+
+        // Tapis mengikut status pilihan dropdown
         const isFull = (total > 0 && hadir === total);
         const isEmpty = (hadir === 0);
         const isPartial = (hadir > 0 && hadir < total);
@@ -218,7 +324,7 @@ function renderTableGrid() {
         if (selectedFilter === 'SEPARA' && !isPartial) return;
         if (selectedFilter === 'KOSONG' && !isEmpty) return;
 
-        // Tapis mengikut carian meja atau peserta
+        // Tapis mengikut carian teks meja atau peserta
         if (query) {
             const matchTable = tableKey.toUpperCase().includes(query);
             const matchParticipant = participants.some(p => 
@@ -231,7 +337,6 @@ function renderTableGrid() {
 
         renderedCount++;
 
-        // Status Card Styling
         let borderAccent = 'border-l-4 border-gray-300';
         let statusBadge = '<span class="px-2 py-0.5 text-xs font-semibold rounded bg-gray-100 text-gray-700">Belum Hadir</span>';
         let progressBg = 'bg-gray-200';
@@ -248,7 +353,6 @@ function renderTableGrid() {
 
         const percentage = total > 0 ? Math.round((hadir / total) * 100) : 0;
 
-        // 10-Slot Visual Representation (Meja Bulat 10 Peserta)
         const maxSlots = Math.max(10, total);
         let slotsHtml = '';
         for (let i = 0; i < maxSlots; i++) {
@@ -276,7 +380,6 @@ function renderTableGrid() {
                     </div>
                 `;
             } else {
-                // Kerusi kosong jika kurang daripada 10
                 slotsHtml += `
                     <div title="Kerusi Kosong" class="h-6 w-6 rounded-full flex items-center justify-center text-[10px] border border-dashed border-gray-300 text-gray-300">
                         ${i + 1}
@@ -424,3 +527,5 @@ function closeDetailModal() {
 // Make functions globally accessible
 window.openDetailModal = openDetailModal;
 window.closeDetailModal = closeDetailModal;
+window.filterByTableShortcut = filterByTableShortcut;
+window.clearTableShortcut = clearTableShortcut;
