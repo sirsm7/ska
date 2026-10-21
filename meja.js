@@ -6,6 +6,7 @@ let allRecipients = [];
 let groupedTables = {};
 let activeTableShortcut = null;
 
+// DOM Elements
 const searchTableInput = document.getElementById('searchTableInput');
 const resetSearchBtn = document.getElementById('resetSearchBtn');
 const filterStatus = document.getElementById('filterStatus');
@@ -125,6 +126,10 @@ function naturalSort(a, b) {
     return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 }
 
+function getPersonKey(nama, sekolah) {
+    return `${(nama || '').trim().toUpperCase()}|||${(sekolah || '').trim().toUpperCase()}`;
+}
+
 async function fetchTableData() {
     if (loadingIndicator) loadingIndicator.classList.remove('hidden');
     if (tableGrid) tableGrid.innerHTML = '';
@@ -150,18 +155,102 @@ async function fetchTableData() {
     }
 }
 
-// Make fetchTableData globally available for refresh button
 window.fetchTableData = fetchTableData;
 
 function groupDataByTable() {
     groupedTables = {};
 
+    const personMap = new Map();
     allRecipients.forEach(r => {
-        const tableKey = (r.no_meja && r.no_meja.trim() !== '') ? r.no_meja.trim() : 'Tanpa Meja';
-        if (!groupedTables[tableKey]) {
-            groupedTables[tableKey] = [];
+        const pKey = getPersonKey(r.nama, r.sekolah);
+        if (!personMap.has(pKey)) {
+            personMap.set(pKey, []);
         }
-        groupedTables[tableKey].push(r);
+        personMap.get(pKey).push(r);
+    });
+
+    const uniquePersons = [];
+    personMap.forEach((records) => {
+        records.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
+
+        const primaryRec = records[0];
+        let primaryTableKey = primaryRec.no_meja ? primaryRec.no_meja.trim() : '';
+
+        if (!primaryTableKey) {
+            const fallback = records.find(r => r.no_meja && r.no_meja.trim() !== '');
+            primaryTableKey = fallback ? fallback.no_meja.trim() : 'Tanpa Meja';
+        }
+
+        const isAnyHadir = records.some(r => r.attendance_status === 'HADIR');
+        const isAllTidakHadir = records.length > 0 && records.every(r => r.attendance_status === 'TIDAK HADIR');
+
+        let unifiedStatus = 'BELUM HADIR';
+        let latestTime = null;
+        let unifiedType = null;
+        let unifiedRep = null;
+
+        if (isAnyHadir) {
+            unifiedStatus = 'HADIR';
+            const hadirItem = records.find(r => r.attendance_status === 'HADIR');
+            latestTime = hadirItem.attendance_time;
+            unifiedType = hadirItem.attendance_type;
+            unifiedRep = hadirItem.representative_name;
+        } else if (isAllTidakHadir) {
+            unifiedStatus = 'TIDAK HADIR';
+        }
+
+        uniquePersons.push({
+            pKey: getPersonKey(primaryRec.nama, primaryRec.sekolah),
+            nama: primaryRec.nama,
+            sekolah: primaryRec.sekolah,
+            kategori: primaryRec.kategori,
+            primaryBil: primaryRec.bil,
+            primaryTable: primaryTableKey,
+            allRecords: records,
+            totalAwards: records.length,
+            attendance_status: unifiedStatus,
+            attendance_time: latestTime,
+            attendance_type: unifiedType,
+            representative_name: unifiedRep
+        });
+    });
+
+    uniquePersons.forEach(person => {
+        const tKey = person.primaryTable || 'Tanpa Meja';
+        if (!groupedTables[tKey]) {
+            groupedTables[tKey] = {
+                seatedParticipants: [],
+                crossTableParticipants: []
+            };
+        }
+        groupedTables[tKey].seatedParticipants.push(person);
+    });
+
+    allRecipients.forEach(rawRec => {
+        const rawTable = rawRec.no_meja ? rawRec.no_meja.trim() : 'Tanpa Meja';
+        const pKey = getPersonKey(rawRec.nama, rawRec.sekolah);
+        const parentPerson = uniquePersons.find(p => p.pKey === pKey);
+
+        if (parentPerson && parentPerson.primaryTable !== rawTable && rawTable !== 'Tanpa Meja') {
+            if (!groupedTables[rawTable]) {
+                groupedTables[rawTable] = {
+                    seatedParticipants: [],
+                    crossTableParticipants: []
+                };
+            }
+            const alreadyAdded = groupedTables[rawTable].crossTableParticipants.some(c => c.id === rawRec.id);
+            if (!alreadyAdded) {
+                groupedTables[rawTable].crossTableParticipants.push({
+                    rawRecord: rawRec,
+                    parentPerson: parentPerson
+                });
+            }
+        }
+    });
+
+    Object.keys(groupedTables).forEach(tKey => {
+        groupedTables[tKey].seatedParticipants.sort((a, b) => (parseInt(a.primaryBil) || 0) - (parseInt(b.primaryBil) || 0));
+        groupedTables[tKey].crossTableParticipants.sort((a, b) => (parseInt(a.rawRecord.bil) || 0) - (parseInt(b.rawRecord.bil) || 0));
     });
 }
 
@@ -170,11 +259,14 @@ function updateOverviewCards() {
     let full = 0;
     let partial = 0;
     let empty = 0;
+    let totalSeatedPersons = 0;
 
     tableKeys.forEach(tableKey => {
-        const list = groupedTables[tableKey];
-        const hadirCount = list.filter(p => p.attendance_status === 'HADIR').length;
-        const totalInTable = list.length;
+        const tableData = groupedTables[tableKey];
+        const seated = tableData.seatedParticipants;
+        const totalInTable = seated.length;
+        const hadirCount = seated.filter(p => p.attendance_status === 'HADIR').length;
+        totalSeatedPersons += totalInTable;
 
         if (totalInTable > 0 && hadirCount === totalInTable) {
             full++;
@@ -189,7 +281,7 @@ function updateOverviewCards() {
     if (statFullTables) statFullTables.textContent = full;
     if (statPartialTables) statPartialTables.textContent = partial;
     if (statEmptyTables) statEmptyTables.textContent = empty;
-    if (statTotalParticipants) statTotalParticipants.textContent = allRecipients.length;
+    if (statTotalParticipants) statTotalParticipants.textContent = totalSeatedPersons;
 }
 
 function renderTableShortcuts() {
@@ -208,7 +300,6 @@ function renderTableShortcuts() {
 
     let shortcutsHtml = '';
 
-    // Butang 'Semua' Meja
     const isAllActive = !activeTableShortcut;
     const allBtnClass = isAllActive 
         ? 'bg-blue-600 text-white border-blue-700 shadow-sm font-bold ring-2 ring-blue-300' 
@@ -217,15 +308,16 @@ function renderTableShortcuts() {
     shortcutsHtml += `
         <button onclick="clearTableShortcut()" 
             class="px-3 py-1.5 text-xs rounded-full border transition flex items-center gap-1.5 ${allBtnClass}">
-            <span>Semua</span>
+            <span>Semua Meja</span>
             <span class="text-[10px] opacity-80 font-mono">(${sortedTableKeys.length})</span>
         </button>
     `;
 
     sortedTableKeys.forEach(tableKey => {
-        const participants = groupedTables[tableKey];
-        const total = participants.length;
-        const hadir = participants.filter(p => p.attendance_status === 'HADIR').length;
+        const tableData = groupedTables[tableKey];
+        const seated = tableData.seatedParticipants;
+        const total = seated.length;
+        const hadir = seated.filter(p => p.attendance_status === 'HADIR').length;
         const isFull = (total > 0 && hadir === total);
         const isActive = (activeTableShortcut === tableKey);
 
@@ -258,7 +350,7 @@ function renderTableShortcuts() {
 
         shortcutsHtml += `
             <button onclick="filterByTableShortcut('${escapedArg}')" 
-                title="${safeKey}: ${hadir}/${total} Hadir ${isFull ? '(Lengkap 100%)' : ''}"
+                title="${safeKey}: ${hadir}/${total} Duduk Hadir ${isFull ? '(Lengkap 100%)' : ''}"
                 class="px-2.5 py-1.5 text-xs rounded-full border transition-all duration-150 flex items-center gap-1.5 ${pillClass}">
                 ${statusIcon}
                 <span class="truncate max-w-[110px]">${safeKey}</span>
@@ -304,35 +396,35 @@ function renderTableGrid() {
     let renderedCount = 0;
 
     sortedTableKeys.forEach(tableKey => {
-        const participants = groupedTables[tableKey];
-        const total = participants.length;
-        const hadir = participants.filter(p => p.attendance_status === 'HADIR').length;
-        const wakil = participants.filter(p => p.attendance_status === 'HADIR' && p.attendance_type === 'WAKIL').length;
-        const hadirSendiri = hadir - wakil;
-        const tidakHadir = participants.filter(p => p.attendance_status === 'TIDAK HADIR').length;
-        const belumHadir = total - hadir - tidakHadir;
-
-        // Tapis mengikut pintasan nombor meja aktif jika ada
-        if (activeTableShortcut && tableKey !== activeTableShortcut) return;
-
-        // Tapis mengikut status pilihan dropdown
+        const tableData = groupedTables[tableKey];
+        const seated = tableData.seatedParticipants;
+        const cross = tableData.crossTableParticipants;
+        const total = seated.length;
+        const hadir = seated.filter(p => p.attendance_status === 'HADIR').length;
         const isFull = (total > 0 && hadir === total);
         const isEmpty = (hadir === 0);
         const isPartial = (hadir > 0 && hadir < total);
+
+        if (activeTableShortcut && tableKey !== activeTableShortcut) return;
 
         if (selectedFilter === 'PENUH' && !isFull) return;
         if (selectedFilter === 'SEPARA' && !isPartial) return;
         if (selectedFilter === 'KOSONG' && !isEmpty) return;
 
-        // Tapis mengikut carian teks meja atau peserta
         if (query) {
             const matchTable = tableKey.toUpperCase().includes(query);
-            const matchParticipant = participants.some(p => 
+            const matchSeated = seated.some(p => 
                 (p.nama && p.nama.toUpperCase().includes(query)) ||
                 (p.sekolah && p.sekolah.toUpperCase().includes(query)) ||
-                (p.bil && p.bil.toString() === query)
+                (p.primaryBil && p.primaryBil.toString() === query) ||
+                p.allRecords.some(r => r.bil && r.bil.toString() === query)
             );
-            if (!matchTable && !matchParticipant) return;
+            const matchCross = cross.some(c => 
+                (c.rawRecord.nama && c.rawRecord.nama.toUpperCase().includes(query)) ||
+                (c.rawRecord.sekolah && c.rawRecord.sekolah.toUpperCase().includes(query)) ||
+                (c.rawRecord.bil && c.rawRecord.bil.toString() === query)
+            );
+            if (!matchTable && !matchSeated && !matchCross) return;
         }
 
         renderedCount++;
@@ -357,9 +449,9 @@ function renderTableGrid() {
         let slotsHtml = '';
         for (let i = 0; i < maxSlots; i++) {
             if (i < total) {
-                const p = participants[i];
+                const p = seated[i];
                 let slotColor = 'bg-gray-200 border-gray-300 text-gray-500';
-                let slotTitle = `${escapeHtml(p.nama)} - Belum Hadir`;
+                let slotTitle = `${escapeHtml(p.nama)} - Belum Hadir (Bil #${p.primaryBil})`;
 
                 if (p.attendance_status === 'HADIR') {
                     if (p.attendance_type === 'WAKIL') {
@@ -375,8 +467,9 @@ function renderTableGrid() {
                 }
 
                 slotsHtml += `
-                    <div title="${slotTitle}" class="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold border ${slotColor} shadow-xs">
+                    <div title="${slotTitle}" class="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold border ${slotColor} shadow-xs relative">
                         ${i + 1}
+                        ${p.totalAwards > 1 ? '<span class="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full border border-white"></span>' : ''}
                     </div>
                 `;
             } else {
@@ -387,6 +480,13 @@ function renderTableGrid() {
                 `;
             }
         }
+
+        const crossNotice = cross.length > 0 ? `
+            <div class="mt-2 text-[11px] bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200 flex items-center justify-between">
+                <span>Penerima giliran lain:</span>
+                <span class="font-bold">${cross.length} orang duduk di meja lain</span>
+            </div>
+        ` : '';
 
         const card = document.createElement('div');
         card.className = `bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-5 border border-gray-200 flex flex-col justify-between ${borderAccent} cursor-pointer`;
@@ -404,8 +504,8 @@ function renderTableGrid() {
 
                 <div class="mb-4">
                     <div class="flex justify-between items-center text-sm font-semibold text-gray-700 mb-1">
-                        <span>Kehadiran:</span>
-                        <span class="text-blue-600 font-bold">${hadir} / ${total} Hadir</span>
+                        <span>Kehadiran Kerusi:</span>
+                        <span class="text-blue-600 font-bold">${hadir} / ${total} Duduk</span>
                     </div>
                     <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
                         <div class="${progressBg} h-2.5 rounded-full transition-all duration-500" style="width: ${percentage}%"></div>
@@ -413,17 +513,19 @@ function renderTableGrid() {
                 </div>
 
                 <div class="mt-4 pt-3 border-t border-gray-100">
-                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Kedudukan 10 Kerusi Peserta:</p>
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">10 Kerusi Fizikal Meja:</p>
                     <div class="grid grid-cols-5 gap-2 justify-items-center">
                         ${slotsHtml}
                     </div>
                 </div>
+
+                ${crossNotice}
             </div>
 
             <div class="mt-5 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-                <span class="text-gray-400">Klik untuk lihat senarai</span>
+                <span class="text-gray-400">Klik untuk perincian</span>
                 <span class="font-medium text-blue-600 hover:text-blue-700 inline-flex items-center gap-1">
-                    Perincian
+                    Lihat Senarai
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                 </span>
             </div>
@@ -442,76 +544,151 @@ function renderTableGrid() {
 function openDetailModal(tableKey) {
     if (!tableModal || !modalTableName || !modalParticipantList) return;
 
-    const participants = groupedTables[tableKey] || [];
-    const total = participants.length;
-    const hadir = participants.filter(p => p.attendance_status === 'HADIR').length;
-    const wakil = participants.filter(p => p.attendance_status === 'HADIR' && p.attendance_type === 'WAKIL').length;
+    const tableData = groupedTables[tableKey] || { seatedParticipants: [], crossTableParticipants: [] };
+    const seated = tableData.seatedParticipants;
+    const cross = tableData.crossTableParticipants;
+
+    const totalSeated = seated.length;
+    const hadir = seated.filter(p => p.attendance_status === 'HADIR').length;
+    const wakil = seated.filter(p => p.attendance_status === 'HADIR' && p.attendance_type === 'WAKIL').length;
     const hadirSendiri = hadir - wakil;
-    const tidakHadir = participants.filter(p => p.attendance_status === 'TIDAK HADIR').length;
-    const belumHadir = total - hadir - tidakHadir;
+    const tidakHadir = seated.filter(p => p.attendance_status === 'TIDAK HADIR').length;
+    const belumHadir = totalSeated - hadir - tidakHadir;
 
     modalTableName.textContent = tableKey;
     if (modalTableStats) {
         modalTableStats.innerHTML = `
             <div class="flex flex-wrap gap-2 text-xs">
-                <span class="px-2 py-1 rounded bg-blue-50 text-blue-700 font-semibold">Kapasiti: ${total} Orang</span>
-                <span class="px-2 py-1 rounded bg-emerald-50 text-emerald-700 font-semibold">Hadir Sendiri: ${hadirSendiri}</span>
-                <span class="px-2 py-1 rounded bg-purple-50 text-purple-700 font-semibold">Wakil: ${wakil}</span>
-                <span class="px-2 py-1 rounded bg-rose-50 text-rose-700 font-semibold">Tidak Hadir: ${tidakHadir}</span>
-                <span class="px-2 py-1 rounded bg-amber-50 text-amber-700 font-semibold">Belum Hadir: ${belumHadir}</span>
+                <span class="px-2.5 py-1 rounded bg-blue-50 text-blue-700 font-bold">Kerusi Fizikal: ${totalSeated} Orang</span>
+                <span class="px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 font-bold">Hadir Sendiri: ${hadirSendiri}</span>
+                <span class="px-2.5 py-1 rounded bg-purple-50 text-purple-700 font-bold">Wakil: ${wakil}</span>
+                <span class="px-2.5 py-1 rounded bg-rose-50 text-rose-700 font-bold">Tidak Hadir: ${tidakHadir}</span>
+                <span class="px-2.5 py-1 rounded bg-amber-50 text-amber-700 font-bold">Belum Hadir: ${belumHadir}</span>
+                ${cross.length > 0 ? `<span class="px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 font-bold">Duduk Meja Lain: ${cross.length} Orang</span>` : ''}
             </div>
         `;
     }
 
     let rowsHtml = '';
-    participants.forEach((p, idx) => {
-        let statusBadge = '';
-        let attendanceDetails = '';
 
-        if (p.attendance_status === 'HADIR') {
-            if (p.attendance_type === 'WAKIL') {
-                statusBadge = '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-purple-100 text-purple-800">Wakil Hadir</span>';
-                attendanceDetails = `<div class="text-[11px] text-gray-500 mt-0.5">Wakil: ${escapeHtml(p.representative_name || '')} (${formatTime(p.attendance_time)})</div>`;
+    rowsHtml += `
+        <tr class="bg-blue-50 border-b border-blue-200">
+            <td colspan="5" class="px-4 py-2 text-xs font-bold text-blue-900 uppercase tracking-wider">
+                Bahagian 1: Peserta Yang Duduk Di Meja Ini (Kapasiti Kerusi Fizikal)
+            </td>
+        </tr>
+    `;
+
+    if (seated.length === 0) {
+        rowsHtml += `<tr><td colspan="5" class="px-4 py-4 text-center text-gray-400 text-xs">Tiada peserta didaftarkan duduk di meja ini.</td></tr>`;
+    } else {
+        seated.forEach((p, idx) => {
+            let statusBadge = '';
+            let attendanceDetails = '';
+
+            if (p.attendance_status === 'HADIR') {
+                if (p.attendance_type === 'WAKIL') {
+                    statusBadge = '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-purple-100 text-purple-800">Wakil Hadir</span>';
+                    attendanceDetails = `<div class="text-[11px] text-gray-500 mt-0.5">Wakil: ${escapeHtml(p.representative_name || '')} (${formatTime(p.attendance_time)})</div>`;
+                } else {
+                    statusBadge = '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800">Hadir Sendiri</span>';
+                    attendanceDetails = `<div class="text-[11px] text-gray-500 mt-0.5">Masa: ${formatTime(p.attendance_time)}</div>`;
+                }
+            } else if (p.attendance_status === 'TIDAK HADIR') {
+                statusBadge = '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-rose-100 text-rose-800">Tidak Hadir</span>';
             } else {
-                statusBadge = '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800">Hadir Sendiri</span>';
-                attendanceDetails = `<div class="text-[11px] text-gray-500 mt-0.5">Masa: ${formatTime(p.attendance_time)}</div>`;
+                statusBadge = '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-100 text-amber-800">Belum Hadir</span>';
             }
-        } else if (p.attendance_status === 'TIDAK HADIR') {
-            statusBadge = '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-rose-100 text-rose-800">Tidak Hadir</span>';
-        } else {
-            statusBadge = '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-100 text-amber-800">Belum Hadir</span>';
-        }
 
-        const pentasBadge = p.naik_pentas_status 
-            ? '<span class="text-[10px] font-bold text-emerald-600 block">Selesai Pentas</span>' 
-            : '<span class="text-[10px] text-gray-400 block">Belum Pentas</span>';
+            let pentasBadges = '';
+            p.allRecords.forEach(rec => {
+                const isSelesai = !!rec.naik_pentas_status;
+                pentasBadges += `
+                    <div class="inline-flex items-center gap-1 my-0.5 px-2 py-0.5 rounded text-[11px] ${isSelesai ? 'bg-emerald-100 text-emerald-800 font-bold' : 'bg-gray-100 text-gray-600'}">
+                        <span>#${escapeHtml(rec.bil)}:</span>
+                        <span>${isSelesai ? 'Selesai Pentas' : 'Belum'}</span>
+                    </div>
+                `;
+            });
 
+            const multiNotice = p.totalAwards > 1 ? `
+                <div class="text-[10px] text-amber-700 font-bold mt-1 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
+                    ★ ${p.totalAwards} Anugerah (Duduk berasaskan Giliran Terawal #${escapeHtml(p.primaryBil)})
+                </div>
+            ` : '';
+
+            rowsHtml += `
+                <tr class="hover:bg-gray-50 transition-colors border-b border-gray-100">
+                    <td class="px-3 py-3 text-center text-xs font-mono font-bold text-gray-500 w-12">
+                        ${idx + 1}
+                    </td>
+                    <td class="px-3 py-3 text-center text-xs font-bold text-blue-700 w-20">
+                        <span class="px-2 py-1 bg-blue-100 rounded text-blue-900">#${escapeHtml(p.primaryBil)}</span>
+                    </td>
+                    <td class="px-4 py-3 text-sm">
+                        <div class="font-bold text-gray-900">${escapeHtml(p.nama)}</div>
+                        <div class="text-xs text-gray-600">${escapeHtml(p.sekolah)}</div>
+                        <div class="text-[11px] text-gray-400">${escapeHtml(p.kategori || '')}</div>
+                        ${multiNotice}
+                    </td>
+                    <td class="px-4 py-3 text-sm whitespace-nowrap">
+                        <div>${statusBadge}</div>
+                        ${attendanceDetails}
+                    </td>
+                    <td class="px-3 py-3 text-center text-xs">
+                        <div class="flex flex-col items-center">
+                            ${pentasBadges}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    if (cross.length > 0) {
         rowsHtml += `
-            <tr class="hover:bg-gray-50 transition-colors border-b border-gray-100">
-                <td class="px-3 py-3 text-center text-xs font-mono font-bold text-gray-500 w-12">
-                    ${idx + 1}
-                </td>
-                <td class="px-3 py-3 text-center text-xs font-bold text-blue-700 w-16">
-                    ${escapeHtml(p.bil)}
-                </td>
-                <td class="px-4 py-3 text-sm">
-                    <div class="font-bold text-gray-900">${escapeHtml(p.nama)}</div>
-                    <div class="text-xs text-gray-500">${escapeHtml(p.sekolah)}</div>
-                    <div class="text-[11px] text-gray-400">${escapeHtml(p.kategori)}</div>
-                </td>
-                <td class="px-4 py-3 text-sm whitespace-nowrap">
-                    <div>${statusBadge}</div>
-                    ${attendanceDetails}
-                </td>
-                <td class="px-3 py-3 text-center text-xs whitespace-nowrap">
-                    ${pentasBadge}
+            <tr class="bg-indigo-50 border-y border-indigo-200">
+                <td colspan="5" class="px-4 py-2 text-xs font-bold text-indigo-900 uppercase tracking-wider">
+                    Bahagian 2: Penerima Giliran Pentas Meja Ini (Namun Duduk di Meja Lain Kerana Giliran Terawal)
                 </td>
             </tr>
         `;
-    });
 
-    if (rowsHtml === '') {
-        rowsHtml = `<tr><td colspan="5" class="px-4 py-6 text-center text-gray-400 text-sm">Tiada peserta didaftarkan di meja ini.</td></tr>`;
+        cross.forEach(c => {
+            const r = c.rawRecord;
+            const parent = c.parentPerson;
+            const isSelesai = !!r.naik_pentas_status;
+
+            rowsHtml += `
+                <tr class="bg-indigo-50/40 hover:bg-indigo-50 transition-colors border-b border-indigo-100">
+                    <td class="px-3 py-3 text-center text-xs font-bold text-indigo-400">
+                        -
+                    </td>
+                    <td class="px-3 py-3 text-center text-xs font-bold text-indigo-700">
+                        <span class="px-2 py-1 bg-indigo-100 rounded text-indigo-900 font-mono">#${escapeHtml(r.bil)}</span>
+                    </td>
+                    <td class="px-4 py-3 text-sm">
+                        <div class="font-bold text-gray-900">${escapeHtml(r.nama)}</div>
+                        <div class="text-xs text-gray-600">${escapeHtml(r.sekolah)} - ${escapeHtml(r.kategori || '')}</div>
+                        <div class="mt-1 text-xs font-bold text-blue-700 bg-white px-2 py-1 rounded border border-blue-200 inline-flex items-center gap-1">
+                            <span>🪑 Tempat Duduk Peserta:</span>
+                            <span class="underline">${escapeHtml(parent.primaryTable)}</span>
+                            <span class="text-gray-500 font-normal">(Giliran #${escapeHtml(parent.primaryBil)})</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-sm whitespace-nowrap">
+                        <span class="px-2 py-0.5 text-xs font-bold rounded-full ${parent.attendance_status === 'HADIR' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'}">
+                            ${escapeHtml(parent.attendance_status)}
+                        </span>
+                    </td>
+                    <td class="px-3 py-3 text-center text-xs">
+                        <span class="px-2 py-0.5 text-[11px] rounded font-bold ${isSelesai ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}">
+                            ${isSelesai ? 'Selesai Pentas' : 'Belum Selesai'}
+                        </span>
+                    </td>
+                </tr>
+            `;
+        });
     }
 
     modalParticipantList.innerHTML = rowsHtml;
@@ -524,7 +701,6 @@ function closeDetailModal() {
     }
 }
 
-// Make functions globally accessible
 window.openDetailModal = openDetailModal;
 window.closeDetailModal = closeDetailModal;
 window.filterByTableShortcut = filterByTableShortcut;

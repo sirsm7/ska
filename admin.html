@@ -19,30 +19,34 @@
 </head>
 <body class="bg-gray-100 font-sans min-h-screen text-gray-800">
 
+    <!-- Skrin Log Masuk Pentadbir -->
     <div id="loginScreen" class="fixed inset-0 bg-gray-900 bg-opacity-95 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg shadow-xl p-8 max-w-sm w-full fade-in relative">
-            <a href="index.html" class="absolute top-4 left-4 text-gray-400 hover:text-blue-600 transition-colors" title="Kembali ke Utama">
+        <div class="bg-white rounded-xl shadow-2xl p-8 max-w-sm w-full fade-in relative border border-gray-100">
+            <a href="index.html" class="absolute top-4 left-4 text-gray-400 hover:text-blue-600 transition-colors" title="Kembali ke Laman Utama">
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
             </a>
             
             <div class="text-center mb-6 mt-4">
-                <svg class="mx-auto h-12 w-12 text-blue-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                <div class="mx-auto w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 mb-3 border border-blue-100">
+                    <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                </div>
                 <h2 class="text-2xl font-bold text-gray-800">Log Masuk Admin</h2>
                 <p class="text-sm text-gray-500 mt-1">Sila masukkan kata laluan untuk meneruskan.</p>
             </div>
             <div class="mb-4">
-                <input type="password" id="passwordInput" class="w-full px-4 py-3 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Kata Laluan" autocomplete="current-password">
+                <input type="password" id="passwordInput" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Kata Laluan Pentadbir" autocomplete="current-password">
             </div>
-            <div id="loginError" class="hidden text-red-500 text-sm mb-4 text-center">Kata laluan tidak sah.</div>
-            <button id="loginBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded transition duration-150 mb-2">
+            <div id="loginError" class="hidden text-red-500 text-xs mb-4 text-center font-semibold">Kata laluan tidak sah. Sila cuba lagi.</div>
+            <button id="loginBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150 shadow-sm">
                 Log Masuk
             </button>
             <div class="text-center mt-4">
-                <a href="index.html" class="text-sm text-gray-500 hover:text-blue-600 underline">Kembali ke Halaman Utama</a>
+                <a href="index.html" class="text-xs text-gray-500 hover:text-blue-600 underline">Kembali ke Halaman Semakan</a>
             </div>
         </div>
     </div>
 
+    <!-- Kandungan Utama Pentadbir -->
     <div id="mainContent" class="hidden">
         <nav class="bg-blue-600 text-white shadow-md">
             <div class="max-w-7xl mx-auto px-4 flex justify-between items-center h-16">
@@ -61,66 +65,71 @@
         </nav>
 
         <main class="max-w-7xl mx-auto px-4 py-8">
+            
+            <!-- Bahagian Tajuk & Butang Kawalan Data -->
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>
-                    <h2 class="text-2xl font-bold text-gray-800">Dashboard Kehadiran</h2>
-                    <p class="text-gray-600 text-sm mt-1">Laporan keseluruhan dan pengurusan data program.</p>
+                    <h2 class="text-2xl font-bold text-gray-800">Dashboard Kehadiran & Pentas</h2>
+                    <p class="text-gray-600 text-sm mt-1">Pengurusan kehadiran, pemantauan naik pentas, dan susunan meja duduk peserta.</p>
                 </div>
                 
                 <div class="flex flex-wrap gap-2 w-full md:w-auto">
-                    <button onclick="fetchData()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded shadow-sm hover:bg-gray-50 flex items-center transition">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    <button onclick="fetchData()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-50 flex items-center transition text-sm font-medium">
+                        <svg class="w-4 h-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                         Segar Semula
                     </button>
                     
-                    <button onclick="eksportDataCSV()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow-sm flex items-center transition">
+                    <button onclick="eksportDataCSV()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-sm flex items-center transition text-sm font-medium">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        Eksport CSV (Backup)
+                        Eksport CSV
                     </button>
 
-                    <label class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow-sm cursor-pointer flex items-center transition">
+                    <label class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg shadow-sm cursor-pointer flex items-center transition text-sm font-medium">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                         Import CSV / Pulih
                         <input type="file" id="csvFileInput" accept=".csv" class="hidden">
                     </label>
 
-                    <button onclick="confirmResetAll()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded shadow-sm flex items-center transition">
+                    <button onclick="confirmResetAll()" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg shadow-sm flex items-center transition text-sm font-medium">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                         Reset Pukal
                     </button>
 
-                    <button onclick="confirmClearData()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded shadow-sm flex items-center transition">
+                    <button onclick="confirmClearData()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg shadow-sm flex items-center transition text-sm font-medium">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         Padam Data
                     </button>
                 </div>
             </div>
 
+            <!-- Kad Skor Statistik Dashboard -->
             <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
                 <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
-                    <p class="text-sm text-gray-500 font-medium uppercase">Jumlah Penerima</p>
+                    <p class="text-xs text-gray-500 font-medium uppercase">Jumlah Penerima</p>
                     <p class="text-3xl font-bold text-gray-800 mt-1" id="statTotal">0</p>
                 </div>
-                <div class="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
-                    <p class="text-sm text-gray-500 font-medium uppercase">Hadir Sendiri</p>
-                    <p class="text-3xl font-bold text-green-600 mt-1" id="statHadir">0</p>
+                <div class="bg-white rounded-lg shadow p-4 border-l-4 border-emerald-500">
+                    <p class="text-xs text-gray-500 font-medium uppercase">Hadir Sendiri</p>
+                    <p class="text-3xl font-bold text-emerald-600 mt-1" id="statHadir">0</p>
                 </div>
                 <div class="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
-                    <p class="text-sm text-gray-500 font-medium uppercase">Hadir (Wakil)</p>
+                    <p class="text-xs text-gray-500 font-medium uppercase">Hadir (Wakil)</p>
                     <p class="text-3xl font-bold text-purple-600 mt-1" id="statWakil">0</p>
                 </div>
-                <div class="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
-                    <p class="text-sm text-gray-500 font-medium uppercase">Tidak Hadir</p>
-                    <p class="text-3xl font-bold text-red-600 mt-1" id="statTidakHadir">0</p>
+                <div class="bg-white rounded-lg shadow p-4 border-l-4 border-rose-500">
+                    <p class="text-xs text-gray-500 font-medium uppercase">Tidak Hadir</p>
+                    <p class="text-3xl font-bold text-rose-600 mt-1" id="statTidakHadir">0</p>
                 </div>
-                <div class="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
-                    <p class="text-sm text-gray-500 font-medium uppercase">Belum Hadir</p>
-                    <p class="text-3xl font-bold text-yellow-600 mt-1" id="statBelum">0</p>
+                <div class="bg-white rounded-lg shadow p-4 border-l-4 border-amber-500">
+                    <p class="text-xs text-gray-500 font-medium uppercase">Belum Hadir</p>
+                    <p class="text-3xl font-bold text-amber-600 mt-1" id="statBelum">0</p>
                 </div>
             </div>
 
+            <!-- Grid Kandungan: Rumusan Wakil & Jadual Utama -->
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
                 
+                <!-- Panel Rumusan Wakil -->
                 <div class="lg:col-span-1">
                     <div class="bg-white rounded-lg shadow border border-gray-200 h-full flex flex-col">
                         <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
@@ -136,26 +145,27 @@
                     </div>
                 </div>
 
+                <!-- Panel Senarai Keseluruhan Peserta & Tanda Naik Pentas -->
                 <div class="lg:col-span-3">
                     <div class="bg-white rounded-lg shadow border border-gray-200 flex flex-col h-full">
                         <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                             <div>
-                                <h3 class="text-lg font-bold text-gray-800">Senarai Keseluruhan (Ikut Giliran)</h3>
-                                <p class="text-xs text-gray-500">Tandakan kotak pada lajur "Naik Pentas" untuk menyemak senarai.</p>
+                                <h3 class="text-lg font-bold text-gray-800">Senarai Keseluruhan (Ikut Giliran Pentas)</h3>
+                                <p class="text-xs text-gray-500">Tandakan kotak pada lajur "Naik Pentas" semasa peserta dipanggil ke pentas.</p>
                             </div>
                             <div class="flex flex-wrap gap-2 w-full sm:w-auto">
-                                <select id="filterKategori" class="border border-gray-300 rounded text-sm px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                <select id="filterKategori" class="border border-gray-300 rounded text-sm px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-medium text-gray-700">
                                     <option value="ALL">Semua Kategori</option>
                                     <option value="GURU">Kategori: Guru</option>
                                     <option value="MURID">Kategori: Murid</option>
                                     <option value="SEKOLAH">Kategori: Sekolah</option>
                                 </select>
-                                <select id="filterPentasStatus" class="border border-gray-300 rounded text-sm px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                                    <option value="ALL">Semua Giliran</option>
+                                <select id="filterPentasStatus" class="border border-gray-300 rounded text-sm px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-medium text-gray-700">
+                                    <option value="ALL">Semua Giliran Pentas</option>
                                     <option value="BELUM_NAIK">Belum Naik Pentas</option>
                                     <option value="SUDAH_NAIK">Sudah Naik Pentas</option>
                                 </select>
-                                <select id="filterStatus" class="border border-gray-300 rounded text-sm px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                <select id="filterStatus" class="border border-gray-300 rounded text-sm px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-medium text-gray-700">
                                     <option value="ALL">Semua Kehadiran</option>
                                     <option value="HADIR">Hanya Hadir</option>
                                     <option value="TIDAK HADIR">Hanya Tidak Hadir</option>
@@ -163,25 +173,27 @@
                                 </select>
                             </div>
                         </div>
+
                         <div class="overflow-x-auto table-container flex-1">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50 sticky top-0 shadow-sm z-10">
                                     <tr>
-                                        <!-- Header for Mobile (2 columns) -->
-                                        <th scope="col" class="md:hidden px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-24">Tanda</th>
+                                        <!-- Header Mudah Alih (2 Kolum) -->
+                                        <th scope="col" class="md:hidden px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-20">Giliran</th>
                                         <th scope="col" class="md:hidden px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Penerima & Kehadiran</th>
                                         
-                                        <!-- Header for Desktop (4 columns) -->
+                                        <!-- Header Desktop (4 Kolum) -->
                                         <th scope="col" class="hidden md:table-cell px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-24">Giliran</th>
-                                        <th scope="col" class="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Penerima, Sekolah & Meja</th>
+                                        <th scope="col" class="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Penerima, Meja Utama & Giliran</th>
                                         <th scope="col" class="hidden md:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Kehadiran</th>
-                                        <th scope="col" class="hidden md:table-cell px-4 py-3 text-center text-xs font-bold text-green-700 uppercase tracking-wider bg-green-50">Tanda Naik Pentas</th>
+                                        <th scope="col" class="hidden md:table-cell px-4 py-3 text-center text-xs font-bold text-emerald-800 uppercase tracking-wider bg-emerald-50/60">Tanda Naik Pentas</th>
                                     </tr>
                                 </thead>
                                 <tbody id="reportTableBody" class="bg-white divide-y divide-gray-200">
                                 </tbody>
                             </table>
                         </div>
+
                         <div id="tableLoading" class="hidden py-12 flex justify-center">
                             <div class="loader ease-linear rounded-full border-4 border-t-4 border-blue-500 h-10 w-10"></div>
                         </div>
@@ -194,66 +206,66 @@
 
     <!-- Modals -->
     <div id="msgModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[60] flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full fade-in">
+        <div class="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full fade-in border border-gray-100">
             <h3 class="text-lg font-bold text-gray-900 mb-2" id="msgTitle">Maklumat</h3>
-            <p class="text-gray-600 mb-6" id="msgBody">Mesej di sini.</p>
+            <p class="text-gray-600 mb-6 text-sm" id="msgBody">Mesej di sini.</p>
             <div class="text-right">
-                <button onclick="closeMsgModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Tutup</button>
+                <button onclick="closeMsgModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg text-sm transition">Tutup</button>
             </div>
         </div>
     </div>
 
     <div id="confirmResetAllModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[60] flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full fade-in">
+        <div class="bg-white rounded-xl shadow-xl p-6 max-w-md w-full fade-in border border-gray-100">
             <div class="flex items-center mb-4">
-                <div class="bg-yellow-100 rounded-full p-2 mr-3">
-                    <svg class="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                <div class="bg-amber-100 rounded-full p-2.5 mr-3">
+                    <svg class="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 </div>
                 <h3 class="text-lg font-bold text-gray-900">Reset Pukal Kehadiran</h3>
             </div>
-            <p class="text-gray-600 mb-6 text-sm">Adakah anda pasti mahu menetapkan semula (reset) status kehadiran untuk <strong>semua penerima</strong> kembali kepada 'Belum Hadir'? Maklumat waktu dan nama wakil akan dipadamkan. Tindakan ini tidak akan memadam senarai penerima.</p>
+            <p class="text-gray-600 mb-6 text-sm leading-relaxed">Adakah anda pasti mahu menetapkan semula status kehadiran untuk <strong>semua penerima</strong> kembali kepada 'Belum Hadir'? Maklumat waktu dan wakil akan dipadamkan, serta status naik pentas akan dikosongkan. Senarai nama penerima tidak akan dipadam.</p>
             <div class="flex justify-end gap-3">
-                <button onclick="closeConfirmResetAllModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded">Batal</button>
-                <button onclick="executeResetAll()" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded">Teruskan Reset</button>
+                <button onclick="closeConfirmResetAllModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg text-sm transition">Batal</button>
+                <button onclick="executeResetAll()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition">Teruskan Reset Pukal</button>
             </div>
         </div>
     </div>
 
     <div id="confirmModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[60] flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full fade-in">
+        <div class="bg-white rounded-xl shadow-xl p-6 max-w-md w-full fade-in border border-gray-100">
             <div class="flex items-center mb-4">
-                <div class="bg-red-100 rounded-full p-2 mr-3">
-                    <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                <div class="bg-rose-100 rounded-full p-2.5 mr-3">
+                    <svg class="h-6 w-6 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                 </div>
-                <h3 class="text-lg font-bold text-gray-900">Pengesahan Padam Data</h3>
+                <h3 class="text-lg font-bold text-gray-900">Pengesahan Padam Data Keseluruhan</h3>
             </div>
-            <p class="text-gray-600 mb-6 text-sm">Adakah anda pasti mahu memadam semua data program ini? Tindakan ini akan mengosongkan jadual penerima sepenuhnya dan tidak boleh dipulihkan. Pastikan anda telah selesai dengan program ini.</p>
+            <p class="text-gray-600 mb-6 text-sm leading-relaxed">Adakah anda pasti mahu memadam semua data penerima program ini? Tindakan ini akan mengosongkan jadual pangkalan data sepenuhnya dan tidak boleh dipulihkan. Pastikan anda telah selesai membuat sandaran CSV.</p>
             <div class="flex justify-end gap-3">
-                <button onclick="closeConfirmModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded">Batal</button>
-                <button onclick="executeClearData()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Padam Data</button>
+                <button onclick="closeConfirmModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg text-sm transition">Batal</button>
+                <button onclick="executeClearData()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-4 rounded-lg text-sm transition">Padam Semua Data</button>
             </div>
         </div>
     </div>
 
     <div id="confirmResetModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[60] flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full fade-in">
+        <div class="bg-white rounded-xl shadow-xl p-6 max-w-md w-full fade-in border border-gray-100">
             <div class="flex items-center mb-4">
-                <div class="bg-yellow-100 rounded-full p-2 mr-3">
-                    <svg class="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                <div class="bg-amber-100 rounded-full p-2.5 mr-3">
+                    <svg class="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 </div>
-                <h3 class="text-lg font-bold text-gray-900">Reset Status Kehadiran</h3>
+                <h3 class="text-lg font-bold text-gray-900">Reset Status Kehadiran Individu</h3>
             </div>
-            <p class="text-gray-600 mb-6 text-sm">Anda pasti mahu reset status <span id="resetTargetName" class="font-bold"></span> kepada 'Belum Hadir'? Maklumat waktu dan wakil akan dipadamkan.</p>
+            <p class="text-gray-600 mb-6 text-sm leading-relaxed">Anda pasti mahu reset status kehadiran bagi <span id="resetTargetName" class="font-bold text-gray-900"></span> kepada 'Belum Hadir'? Semua rekod anugerah penerima ini akan dikembalikan kepada Belum Hadir serta status pentas akan ditetapkan semula.</p>
             <input type="hidden" id="resetTargetId">
             <div class="flex justify-end gap-3">
-                <button onclick="closeResetModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded">Batal</button>
-                <button onclick="executeResetData()" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded" id="btnConfirmReset">Reset Status</button>
+                <button onclick="closeResetModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg text-sm transition">Batal</button>
+                <button onclick="executeResetData()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition" id="btnConfirmReset">Reset Status</button>
             </div>
         </div>
     </div>
 
-    <div id="processModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[70] flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full text-center flex flex-col items-center">
+    <div id="processModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 z-[70] flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full text-center flex flex-col items-center border border-gray-100">
             <div class="loader ease-linear rounded-full border-4 border-t-4 border-blue-500 h-12 w-12 mb-4"></div>
             <h3 class="text-lg font-bold text-gray-900" id="processText">Sedang Memproses...</h3>
         </div>

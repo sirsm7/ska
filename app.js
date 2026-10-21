@@ -4,6 +4,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentTab = 'belum'; 
 let allData = []; 
+let personProfilesMap = new Map();
 
 // DOM Elements
 const searchInput = document.getElementById('searchInput');
@@ -39,7 +40,7 @@ const doneTypingInterval = 300;
 
 document.addEventListener('DOMContentLoaded', fetchAllData);
 
-if(searchInput) {
+if (searchInput) {
     searchInput.addEventListener('input', function (e) {
         e.target.value = e.target.value.toUpperCase();
         
@@ -60,16 +61,16 @@ if(searchInput) {
     });
 }
 
-if(filterKategori) filterKategori.addEventListener('change', processDataView);
-if(resetSearchBtn) resetSearchBtn.addEventListener('click', clearSearch);
-if(cancelWakilBtn) cancelWakilBtn.addEventListener('click', closeWakilModal);
-if(saveWakilBtn) saveWakilBtn.addEventListener('click', saveWakil);
+if (filterKategori) filterKategori.addEventListener('change', processDataView);
+if (resetSearchBtn) resetSearchBtn.addEventListener('click', clearSearch);
+if (cancelWakilBtn) cancelWakilBtn.addEventListener('click', closeWakilModal);
+if (saveWakilBtn) saveWakilBtn.addEventListener('click', saveWakil);
 
 function clearSearch() {
-    if(searchInput) searchInput.value = '';
-    if(resetSearchBtn) resetSearchBtn.classList.add('hidden');
+    if (searchInput) searchInput.value = '';
+    if (resetSearchBtn) resetSearchBtn.classList.add('hidden');
     processDataView();
-    if(searchInput) searchInput.focus();
+    if (searchInput) searchInput.focus();
 }
 
 function formatTime(dateString) {
@@ -88,8 +89,16 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
+function getPersonKey(nama, sekolah) {
+    return `${(nama || '').trim().toUpperCase()}|||${(sekolah || '').trim().toUpperCase()}`;
+}
+
+function getSafeDomId(nama, sekolah) {
+    return 'act-' + (nama + '_' + sekolah).replace(/[^a-zA-Z0-9]/g, '_');
+}
+
 function showError(msg) {
-    if(!errorText || !errorMessage) return;
+    if (!errorText || !errorMessage) return;
     errorText.textContent = msg;
     errorMessage.classList.remove('hidden');
     setTimeout(() => errorMessage.classList.add('hidden'), 5000);
@@ -98,20 +107,20 @@ function showError(msg) {
 function switchTab(tab) {
     currentTab = tab;
     if (tab === 'belum') {
-        if(tabBelum) {
+        if (tabBelum) {
             tabBelum.classList.add('bg-blue-50', 'text-blue-700', 'border-blue-600');
             tabBelum.classList.remove('text-gray-500', 'border-transparent', 'hover:bg-gray-50');
         }
-        if(tabTelah) {
+        if (tabTelah) {
             tabTelah.classList.remove('bg-blue-50', 'text-blue-700', 'border-blue-600');
             tabTelah.classList.add('text-gray-500', 'border-transparent', 'hover:bg-gray-50');
         }
     } else {
-        if(tabTelah) {
+        if (tabTelah) {
             tabTelah.classList.add('bg-blue-50', 'text-blue-700', 'border-blue-600');
             tabTelah.classList.remove('text-gray-500', 'border-transparent', 'hover:bg-gray-50');
         }
-        if(tabBelum) {
+        if (tabBelum) {
             tabBelum.classList.remove('bg-blue-50', 'text-blue-700', 'border-blue-600');
             tabBelum.classList.add('text-gray-500', 'border-transparent', 'hover:bg-gray-50');
         }
@@ -119,12 +128,69 @@ function switchTab(tab) {
     processDataView();
 }
 
-// Make switchTab globally accessible for inline onclick
 window.switchTab = switchTab;
 
+function buildPersonProfiles(dataset) {
+    const map = new Map();
+
+    dataset.forEach(r => {
+        const key = getPersonKey(r.nama, r.sekolah);
+        if (!map.has(key)) {
+            map.set(key, []);
+        }
+        map.get(key).push(r);
+    });
+
+    const profiles = new Map();
+    map.forEach((records, key) => {
+        records.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
+
+        const primaryRecord = records[0];
+        let primaryTable = primaryRecord.no_meja;
+
+        if (!primaryTable || primaryTable.trim() === '') {
+            const fallback = records.find(r => r.no_meja && r.no_meja.trim() !== '');
+            primaryTable = fallback ? fallback.no_meja : '-';
+        }
+
+        const isAnyHadir = records.some(r => r.attendance_status === 'HADIR');
+        const isAllTidakHadir = records.length > 0 && records.every(r => r.attendance_status === 'TIDAK HADIR');
+
+        let unifiedStatus = 'BELUM HADIR';
+        let latestAttendanceTime = null;
+        let unifiedAttendanceType = null;
+        let unifiedRepName = null;
+
+        if (isAnyHadir) {
+            unifiedStatus = 'HADIR';
+            const hadirRec = records.find(r => r.attendance_status === 'HADIR');
+            latestAttendanceTime = hadirRec.attendance_time;
+            unifiedAttendanceType = hadirRec.attendance_type;
+            unifiedRepName = hadirRec.representative_name;
+        } else if (isAllTidakHadir) {
+            unifiedStatus = 'TIDAK HADIR';
+        }
+
+        profiles.set(key, {
+            nama: primaryRecord.nama,
+            sekolah: primaryRecord.sekolah,
+            primaryBil: primaryRecord.bil,
+            primaryTable: primaryTable,
+            allRecords: records,
+            totalAwards: records.length,
+            unifiedStatus: unifiedStatus,
+            attendanceTime: latestAttendanceTime,
+            attendanceType: unifiedAttendanceType,
+            representativeName: unifiedRepName
+        });
+    });
+
+    return profiles;
+}
+
 async function fetchAllData() {
-    if(loadingIndicator) loadingIndicator.classList.remove('hidden');
-    if(resultsContainer) resultsContainer.innerHTML = '';
+    if (loadingIndicator) loadingIndicator.classList.remove('hidden');
+    if (resultsContainer) resultsContainer.innerHTML = '';
     
     try {
         const { data, error } = await supabaseClient
@@ -136,22 +202,18 @@ async function fetchAllData() {
         if (error) throw error;
         allData = data || [];
         
+        personProfilesMap = buildPersonProfiles(allData);
         processDataView();
 
     } catch (error) {
         console.error("Fetch Error:", error);
-        showError("Gagal memuat turun data.");
+        showError("Gagal memuat turun data dari pelayan.");
     } finally {
-        if(loadingIndicator) loadingIndicator.classList.add('hidden');
+        if (loadingIndicator) loadingIndicator.classList.add('hidden');
     }
 }
 
 function updateCounts(filteredDataSet) {
-    const b = filteredDataSet.filter(r => r.attendance_status !== 'HADIR').length;
-    const t = filteredDataSet.filter(r => r.attendance_status === 'HADIR').length;
-    if(countBelum) countBelum.textContent = b;
-    if(countTelah) countTelah.textContent = t;
-
     let total = filteredDataSet.length;
     let hadir = 0;
     let wakil = 0;
@@ -169,17 +231,17 @@ function updateCounts(filteredDataSet) {
         }
     });
 
-    if(statTotal) statTotal.textContent = total;
-    if(statHadir) statHadir.textContent = hadir;
-    if(statWakil) statWakil.textContent = wakil;
-    if(statTidakHadir) statTidakHadir.textContent = tidakHadir;
-    if(statBelum) statBelum.textContent = belum;
+    if (statTotal) statTotal.textContent = total;
+    if (statHadir) statHadir.textContent = hadir;
+    if (statWakil) statWakil.textContent = wakil;
+    if (statTidakHadir) statTidakHadir.textContent = tidakHadir;
+    if (statBelum) statBelum.textContent = belum;
 }
 
 function processDataView() {
-    if(!searchInput || !filterKategori) return;
+    if (!searchInput || !filterKategori) return;
     
-    const query = searchInput.value.trim();
+    const query = searchInput.value.trim().toUpperCase();
     const selectedKat = filterKategori.value;
     let currentDataSet = allData;
 
@@ -192,18 +254,27 @@ function processDataView() {
     let dataToRender = currentDataSet;
 
     if (query) {
-        if(searchIndicator) searchIndicator.classList.remove('hidden');
-        if(tabContainer) tabContainer.classList.add('opacity-50', 'pointer-events-none');
+        if (searchIndicator) searchIndicator.classList.remove('hidden');
+        if (tabContainer) tabContainer.classList.add('opacity-50', 'pointer-events-none');
         
         const qNum = parseInt(query);
-        dataToRender = dataToRender.filter(r => 
-            (r.nama && r.nama.includes(query)) || 
-            (r.sekolah && r.sekolah.includes(query)) ||
-            (!isNaN(qNum) && r.bil === qNum)
-        );
+        const queryCleanTable = query.replace(/^MEJA\s*/i, '').trim();
+
+        dataToRender = dataToRender.filter(r => {
+            const nameMatch = r.nama && r.nama.toUpperCase().includes(query);
+            const schoolMatch = r.sekolah && r.sekolah.toUpperCase().includes(query);
+            const bilMatch = !isNaN(qNum) && r.bil === qNum;
+            const tableStr = r.no_meja ? r.no_meja.toString().toUpperCase() : '';
+            const tableMatch = tableStr !== '' && (
+                tableStr.includes(query) ||
+                (queryCleanTable !== '' && tableStr === queryCleanTable) ||
+                (queryCleanTable !== '' && tableStr === `MEJA ${queryCleanTable}`)
+            );
+            return nameMatch || schoolMatch || bilMatch || tableMatch;
+        });
     } else {
-        if(searchIndicator) searchIndicator.classList.add('hidden');
-        if(tabContainer) tabContainer.classList.remove('opacity-50', 'pointer-events-none');
+        if (searchIndicator) searchIndicator.classList.add('hidden');
+        if (tabContainer) tabContainer.classList.remove('opacity-50', 'pointer-events-none');
         
         if (currentTab === 'belum') {
             dataToRender = dataToRender.filter(r => r.attendance_status !== 'HADIR');
@@ -216,24 +287,24 @@ function processDataView() {
 }
 
 function renderResults(recipients, query, category) {
-    if(!resultsContainer) return;
+    if (!resultsContainer) return;
     
     if (!recipients || recipients.length === 0) {
         let msg = 'Tiada rekod dalam kategori ini.';
         if (query) {
-            msg = `Tiada rekod dijumpai untuk pencarian: "${escapeHtml(query)}"`;
+            msg = `Tiada rekod dijumpai untuk carian: "${escapeHtml(query)}"`;
         } else if (category !== 'ALL') {
             msg = `Tiada rekod dijumpai untuk tapisan kategori: ${escapeHtml(category)}`;
         }
         
         resultsContainer.innerHTML = `
-            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-                <div class="flex">
-                    <div class="ml-3">
-                        <p class="text-sm text-yellow-700">${msg}</p>
-                    </div>
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+                <div class="flex items-center">
+                    <p class="text-sm text-yellow-800 font-medium">${msg}</p>
                 </div>
             </div>`;
+        if (countBelum && currentTab === 'belum' && !query) countBelum.textContent = 0;
+        if (countTelah && currentTab === 'telah' && !query) countTelah.textContent = 0;
         return;
     }
 
@@ -245,9 +316,10 @@ function renderResults(recipients, query, category) {
     }, {});
 
     let html = '';
+    let totalRenderedPersons = 0;
 
-    for (const [sekolah, students] of Object.entries(groupedBySchool)) {
-        const hasBelumHadir = students.some(s => s.attendance_status === 'BELUM HADIR');
+    for (const [sekolah, records] of Object.entries(groupedBySchool)) {
+        const hasBelumHadir = records.some(s => s.attendance_status === 'BELUM HADIR');
         
         const btnPukal = hasBelumHadir && currentTab === 'belum' && !query ? 
             `<button onclick="openWakilModalPukal('${escapeHtml(sekolah.replace(/'/g, "\\'"))}')" class="bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300 text-xs px-3 py-1.5 rounded shadow-sm font-bold flex items-center transition">
@@ -264,54 +336,137 @@ function renderResults(recipients, query, category) {
         html += `
             <div class="mb-8 fade-in">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-200 px-4 py-3 rounded-t-lg border-b border-gray-300 gap-3">
-                    <h2 class="text-xl font-bold text-gray-800 uppercase tracking-wide">
-                        ${escapeHtml(sekolah)}
+                    <h2 class="text-xl font-bold text-gray-800 uppercase tracking-wide flex items-center gap-2">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                        <span>${escapeHtml(sekolah)}</span>
                     </h2>
                     <div class="flex gap-2 flex-wrap w-full sm:w-auto">
                         ${btnPukal}
                         ${btnPukalTidak}
                     </div>
                 </div>
-                <div class="bg-white shadow rounded-b-lg overflow-hidden">
+                <div class="bg-white shadow rounded-b-lg overflow-hidden divide-y divide-gray-200">
         `;
 
-        students.forEach((student, index) => {
-            const isLast = index === students.length - 1;
-            const borderClass = isLast ? '' : 'border-b border-gray-200';
-            const safeNama = student.nama ? student.nama.replace(/'/g, "\\'") : '';
-            const safeSekolah = student.sekolah ? student.sekolah.replace(/'/g, "\\'") : '';
-            const noMejaDisplay = student.no_meja ? ` | <span class="font-semibold text-blue-600">Meja: ${escapeHtml(student.no_meja)}</span>` : '';
-            
+        const personsInSchool = new Map();
+        records.forEach(r => {
+            const pKey = getPersonKey(r.nama, r.sekolah);
+            if (!personsInSchool.has(pKey)) {
+                personsInSchool.set(pKey, []);
+            }
+            personsInSchool.get(pKey).push(r);
+        });
+
+        personsInSchool.forEach((matchedRecords, pKey) => {
+            totalRenderedPersons++;
+            const profile = personProfilesMap.get(pKey) || {
+                nama: matchedRecords[0].nama,
+                sekolah: matchedRecords[0].sekolah,
+                primaryBil: matchedRecords[0].bil,
+                primaryTable: matchedRecords[0].no_meja || '-',
+                allRecords: matchedRecords,
+                totalAwards: matchedRecords.length,
+                unifiedStatus: matchedRecords[0].attendance_status,
+                attendanceTime: matchedRecords[0].attendance_time,
+                attendanceType: matchedRecords[0].attendance_type,
+                representativeName: matchedRecords[0].representative_name
+            };
+
+            const safeNama = profile.nama ? profile.nama.replace(/'/g, "\\'") : '';
+            const safeSekolah = profile.sekolah ? profile.sekolah.replace(/'/g, "\\'") : '';
+            const actionDomId = getSafeDomId(profile.nama, profile.sekolah);
+
             let statusHtml = '';
             let actionHtml = '';
 
-            if (student.attendance_status === 'HADIR') {
-                statusHtml = `<div class="text-green-600 font-bold flex items-center"><span class="mr-1">🟢</span> Hadir ${formatTime(student.attendance_time)}</div>`;
-                if(student.attendance_type === 'WAKIL') {
-                     statusHtml = `
-                     <div class="text-purple-600 font-bold flex items-center mb-1"><span class="mr-1">🟣</span> Wakil Hadir ${formatTime(student.attendance_time)}</div>
-                     <div class="text-sm text-gray-600 font-medium">Kategori Wakil: ${escapeHtml(student.representative_name)}</div>
-                     `;
+            if (profile.unifiedStatus === 'HADIR') {
+                statusHtml = `
+                    <div class="text-green-600 font-bold flex items-center text-sm">
+                        <span class="mr-1.5">🟢</span> Hadir ${formatTime(profile.attendanceTime)}
+                    </div>`;
+                if (profile.attendanceType === 'WAKIL') {
+                    statusHtml = `
+                        <div class="text-purple-600 font-bold flex items-center text-sm mb-1">
+                            <span class="mr-1.5">🟣</span> Wakil Hadir ${formatTime(profile.attendanceTime)}
+                        </div>
+                        <div class="text-xs text-gray-600 font-medium bg-purple-50 px-2.5 py-1 rounded border border-purple-100 inline-block">
+                            Kategori Wakil: <span class="font-bold text-purple-800">${escapeHtml(profile.representativeName || '-')}</span>
+                        </div>`;
                 }
-            } else if (student.attendance_status === 'TIDAK HADIR') {
-                statusHtml = `<div class="text-red-600 font-bold flex items-center"><span class="mr-1">🔴</span> Tidak Hadir</div>`;
-                actionHtml = generateActionButtons(student.id, safeNama, safeSekolah, student.attendance_status);
+            } else if (profile.unifiedStatus === 'TIDAK HADIR') {
+                statusHtml = `<div class="text-red-600 font-bold flex items-center text-sm"><span class="mr-1.5">🔴</span> Tidak Hadir</div>`;
+                actionHtml = generateActionButtons(profile.allRecords[0].id, safeNama, safeSekolah, profile.unifiedStatus);
             } else {
-                statusHtml = `<div class="text-yellow-600 font-bold flex items-center"><span class="mr-1">🟡</span> Belum Hadir</div>`;
-                actionHtml = generateActionButtons(student.id, safeNama, safeSekolah, student.attendance_status);
+                statusHtml = `<div class="text-yellow-600 font-bold flex items-center text-sm"><span class="mr-1.5">🟡</span> Belum Hadir</div>`;
+                actionHtml = generateActionButtons(profile.allRecords[0].id, safeNama, safeSekolah, profile.unifiedStatus);
             }
 
+            let giliransHtml = '';
+            profile.allRecords.forEach(rec => {
+                const isPrimary = (rec.bil === profile.primaryBil);
+                const tableText = rec.no_meja ? `Meja: ${escapeHtml(rec.no_meja)}` : 'Meja: -';
+                const pentasText = rec.naik_pentas_status ? ' [Selesai Pentas]' : '';
+                
+                giliransHtml += `
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold ${isPrimary ? 'bg-blue-100 text-blue-900 border border-blue-300' : 'bg-gray-100 text-gray-700 border border-gray-200'}">
+                        <span class="font-mono font-bold">#${escapeHtml(rec.bil)}</span>
+                        <span>(${escapeHtml(rec.kategori || '-')})</span>
+                        <span class="opacity-75 text-[11px]">${tableText}</span>
+                        ${isPrimary ? '<span class="text-[10px] bg-blue-600 text-white font-bold px-1 rounded">UTAMA</span>' : ''}
+                        ${pentasText ? '<span class="text-emerald-700 font-bold text-[10px]">✓</span>' : ''}
+                    </span>
+                `;
+            });
+
+            const primaryTableLabel = (profile.primaryTable && profile.primaryTable !== '-') 
+                ? `${escapeHtml(profile.primaryTable.toString().toUpperCase().startsWith('MEJA') ? profile.primaryTable : 'MEJA ' + profile.primaryTable)}`
+                : 'BELUM DITETAPKAN';
+
             html += `
-                <div class="p-4 ${borderClass} flex flex-col sm:flex-row justify-between items-start sm:items-center hover:bg-gray-50 transition duration-150">
-                    <div class="mb-4 sm:mb-0 w-full sm:w-2/3">
-                        <div class="flex items-baseline">
-                            <span class="text-gray-500 font-mono text-sm mr-3">Bil: ${escapeHtml(student.bil)}</span>
-                            <h3 class="text-lg font-bold text-gray-900">${escapeHtml(student.nama)}</h3>
+                <div class="p-5 flex flex-col lg:flex-row justify-between items-start lg:items-center hover:bg-gray-50 transition duration-150 gap-4">
+                    <div class="w-full lg:w-2/3">
+                        <div class="flex flex-wrap items-center gap-2 mb-2">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black font-mono bg-blue-100 text-blue-800 border border-blue-300 shadow-xs">
+                                Bil Terawal: #${escapeHtml(profile.primaryBil)}
+                            </span>
+                            ${profile.totalAwards > 1 ? `
+                                <span class="multi-badge inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold shadow-xs">
+                                    ★ ${profile.totalAwards} Anugerah / Giliran
+                                </span>
+                            ` : ''}
+                            <h3 class="text-lg font-bold text-gray-900 ml-1">${escapeHtml(profile.nama)}</h3>
                         </div>
-                        <p class="text-sm text-gray-600 mb-2">${escapeHtml(student.kategori)}${noMejaDisplay}</p>
+
+                        <!-- KAD SOROTAN MEJA UTAMA TEMPAT DUDUK -->
+                        <div class="primary-table-card rounded-lg p-3.5 mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full primary-table-badge flex items-center justify-center font-black text-lg flex-shrink-0">
+                                    🪑
+                                </div>
+                                <div>
+                                    <span class="text-[11px] font-black tracking-wider text-blue-700 uppercase block">Meja Utama Tempat Duduk Peserta</span>
+                                    <span class="text-xl font-black text-blue-900 tracking-tight">${primaryTableLabel}</span>
+                                </div>
+                            </div>
+                            ${profile.totalAwards > 1 ? `
+                                <div class="text-xs text-blue-800 bg-white/80 backdrop-blur-xs px-3 py-1.5 rounded-md border border-blue-200 font-medium">
+                                    Duduk di meja giliran terawal: <strong class="text-blue-900">Giliran #${escapeHtml(profile.primaryBil)}</strong>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- PERINCIAN GILIRAN PENTAS -->
+                        <div class="mb-3">
+                            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Senarai Giliran Naik Pentas:</p>
+                            <div class="flex flex-wrap gap-1.5">
+                                ${giliransHtml}
+                            </div>
+                        </div>
+
                         ${statusHtml}
                     </div>
-                    <div class="w-full sm:w-auto flex flex-col sm:flex-row flex-wrap gap-2" id="actions-${student.id}">
+
+                    <div class="w-full lg:w-auto flex flex-col sm:flex-row flex-wrap gap-2 justify-end" id="${actionDomId}">
                         ${actionHtml}
                     </div>
                 </div>
@@ -322,23 +477,29 @@ function renderResults(recipients, query, category) {
     }
 
     resultsContainer.innerHTML = html;
+
+    if (!query) {
+        if (currentTab === 'belum' && countBelum) countBelum.textContent = totalRenderedPersons;
+        if (currentTab === 'telah' && countTelah) countTelah.textContent = totalRenderedPersons;
+    }
 }
 
 function generateActionButtons(id, name, sekolah, status) {
     let buttons = `
-        <button onclick="markHadir('${id}', '${name}', '${sekolah}')" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded shadow font-semibold flex items-center justify-center transition duration-150">
-            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        <button onclick="markHadir('${name}', '${sekolah}')" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg shadow font-bold text-sm flex items-center justify-center transition duration-150">
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
             HADIR
         </button>
-        <button onclick="openWakilModal('${id}', '${name}', '${sekolah}')" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded shadow font-semibold flex items-center justify-center transition duration-150">
+        <button onclick="openWakilModal('${id}', '${name}', '${sekolah}')" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-lg shadow font-bold text-sm flex items-center justify-center transition duration-150">
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
             WAKIL
         </button>
     `;
 
     if (status !== 'TIDAK HADIR') {
         buttons += `
-            <button onclick="markTidakHadir('${id}', '${name}', '${sekolah}')" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded shadow font-semibold flex items-center justify-center transition duration-150">
-                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            <button onclick="markTidakHadir('${name}', '${sekolah}')" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2.5 rounded-lg shadow font-bold text-sm flex items-center justify-center transition duration-150">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 TIDAK HADIR
             </button>
         `;
@@ -347,16 +508,19 @@ function generateActionButtons(id, name, sekolah, status) {
     return buttons;
 }
 
-// Make functions globally accessible for inline onclick handlers
 window.markHadir = markHadir;
 window.markTidakHadir = markTidakHadir;
 window.openWakilModal = openWakilModal;
 window.openWakilModalPukal = openWakilModalPukal;
 window.confirmPukalTidakHadir = confirmPukalTidakHadir;
+window.closeWakilModal = closeWakilModal;
+window.saveWakil = saveWakil;
+window.clearSearch = clearSearch;
 
-async function markHadir(id, name, sekolah) {
-    const actionContainer = document.getElementById(`actions-${id}`);
-    if(actionContainer) actionContainer.innerHTML = '<span class="text-gray-500 text-sm">Menyimpan...</span>';
+async function markHadir(name, sekolah) {
+    const actionDomId = getSafeDomId(name, sekolah);
+    const actionContainer = document.getElementById(actionDomId);
+    if (actionContainer) actionContainer.innerHTML = '<span class="text-blue-600 text-sm font-semibold">Menyimpan kehadiran...</span>';
     const currentTime = new Date().toISOString();
 
     try {
@@ -368,7 +532,7 @@ async function markHadir(id, name, sekolah) {
                 attendance_type: 'SENDIRI',
                 representative_name: null
             })
-            .eq('id', id);
+            .match({ nama: name, sekolah: sekolah });
 
         if (error) throw error;
         fetchAllData(); 
@@ -376,15 +540,16 @@ async function markHadir(id, name, sekolah) {
     } catch (error) {
         console.error("Ralat tanda hadir:", error);
         showError("Gagal mengemaskini status kehadiran.");
-        if(actionContainer) actionContainer.innerHTML = generateActionButtons(id, name, sekolah, 'BELUM HADIR');
+        if (actionContainer) generateActionButtons('', name, sekolah, 'BELUM HADIR');
     }
 }
 
-async function markTidakHadir(id, name, sekolah) {
-    if(!confirm(`Mengesahkan ${name} sebagai TIDAK HADIR?`)) return;
+async function markTidakHadir(name, sekolah) {
+    if (!confirm(`Mengesahkan ${name} sebagai TIDAK HADIR bagi semua giliran anugerah?`)) return;
     
-    const actionContainer = document.getElementById(`actions-${id}`);
-    if(actionContainer) actionContainer.innerHTML = '<span class="text-gray-500 text-sm">Menyimpan...</span>';
+    const actionDomId = getSafeDomId(name, sekolah);
+    const actionContainer = document.getElementById(actionDomId);
+    if (actionContainer) actionContainer.innerHTML = '<span class="text-red-600 text-sm font-semibold">Menyimpan maklumat...</span>';
     const currentTime = new Date().toISOString();
 
     try {
@@ -396,7 +561,7 @@ async function markTidakHadir(id, name, sekolah) {
                 attendance_type: null,
                 representative_name: null
             })
-            .eq('id', id);
+            .match({ nama: name, sekolah: sekolah });
 
         if (error) throw error;
         fetchAllData(); 
@@ -404,12 +569,12 @@ async function markTidakHadir(id, name, sekolah) {
     } catch (error) {
         console.error("Ralat tanda tidak hadir:", error);
         showError("Gagal mengemaskini status tidak hadir.");
-        if(actionContainer) actionContainer.innerHTML = generateActionButtons(id, name, sekolah, 'BELUM HADIR');
+        if (actionContainer) generateActionButtons('', name, sekolah, 'BELUM HADIR');
     }
 }
 
 async function confirmPukalTidakHadir(sekolah) {
-    if(!confirm(`Mengesahkan SEMUA yang belum hadir untuk sekolah ${sekolah} sebagai TIDAK HADIR?`)) return;
+    if (!confirm(`Mengesahkan SEMUA yang belum hadir bagi sekolah ${sekolah} sebagai TIDAK HADIR?`)) return;
     
     const currentTime = new Date().toISOString();
     const selectedKat = filterKategori ? filterKategori.value : 'ALL';
@@ -450,14 +615,14 @@ function resetRadioButtons() {
 }
 
 function openWakilModal(id, name, sekolah) {
-    if(!modalMode || !modalRecipientId || !modalRecipientSekolah || !wakilModal) return;
+    if (!modalMode || !modalRecipientId || !modalRecipientSekolah || !wakilModal) return;
     
     modalMode.value = 'INDIVIDU';
     modalRecipientId.value = id;
     modalRecipientSekolah.value = sekolah;
     
     const modalSubtitle = document.getElementById('modalSubtitle');
-    if(modalSubtitle) {
+    if (modalSubtitle) {
         modalSubtitle.innerHTML = `Penerima asal: <span id="modalRecipientName" class="font-bold text-gray-800">${escapeHtml(name)}</span>`;
     }
     
@@ -466,13 +631,13 @@ function openWakilModal(id, name, sekolah) {
 }
 
 function openWakilModalPukal(sekolah) {
-    if(!modalMode || !modalRecipientSekolah || !wakilModal) return;
+    if (!modalMode || !modalRecipientSekolah || !wakilModal) return;
     
     modalMode.value = 'PUKAL';
     modalRecipientSekolah.value = sekolah;
     
     const modalSubtitle = document.getElementById('modalSubtitle');
-    if(modalSubtitle) {
+    if (modalSubtitle) {
         modalSubtitle.innerHTML = `Tanda wakil secara pukal untuk:<br><span class="font-bold text-gray-800 text-base uppercase">${escapeHtml(sekolah)}</span>`;
     }
     
@@ -481,23 +646,23 @@ function openWakilModalPukal(sekolah) {
 }
 
 function closeWakilModal() {
-    if(wakilModal) wakilModal.classList.add('hidden');
+    if (wakilModal) wakilModal.classList.add('hidden');
 }
 
 async function saveWakil() {
-    if(!modalMode || !modalRecipientSekolah) return;
+    if (!modalMode || !modalRecipientSekolah) return;
     
     const mode = modalMode.value;
     const sekolahToUpdate = modalRecipientSekolah.value;
     const selectedRadio = document.querySelector('input[name="wakilType"]:checked');
 
     if (!selectedRadio) {
-        alert("Sila pilih jenis wakil.");
+        alert("Sila pilih kategori wakil.");
         return;
     }
     const wakilType = selectedRadio.value;
 
-    if(saveWakilBtn) {
+    if (saveWakilBtn) {
         saveWakilBtn.disabled = true;
         saveWakilBtn.innerHTML = 'Menyimpan...';
     }
@@ -554,7 +719,7 @@ async function saveWakil() {
         console.error("Ralat daftar wakil:", error);
         showError("Gagal merekod maklumat wakil.");
     } finally {
-        if(saveWakilBtn) {
+        if (saveWakilBtn) {
             saveWakilBtn.disabled = false;
             saveWakilBtn.innerHTML = 'Simpan';
         }

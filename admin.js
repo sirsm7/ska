@@ -3,6 +3,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5v
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let allRecipients = [];
+let personProfilesMap = new Map();
 
 // DOM Elements
 const loginScreen = document.getElementById('loginScreen');
@@ -38,15 +39,17 @@ const statWakil = document.getElementById('statWakil');
 const statTidakHadir = document.getElementById('statTidakHadir');
 const statBelum = document.getElementById('statBelum');
 
+let resetTargetRecipient = null;
+
 function checkSession() {
     if (localStorage.getItem('isAdminLoggedIn') === 'true') {
-        if(loginScreen) loginScreen.classList.add('hidden');
-        if(mainContent) mainContent.classList.remove('hidden');
+        if (loginScreen) loginScreen.classList.add('hidden');
+        if (mainContent) mainContent.classList.remove('hidden');
         fetchData();
     } else {
-        if(loginScreen) loginScreen.classList.remove('hidden');
-        if(mainContent) mainContent.classList.add('hidden');
-        if(passwordInput) passwordInput.value = '';
+        if (loginScreen) loginScreen.classList.remove('hidden');
+        if (mainContent) mainContent.classList.add('hidden');
+        if (passwordInput) passwordInput.value = '';
     }
 }
 
@@ -56,10 +59,12 @@ window.addEventListener('pageshow', function (event) {
     }
 });
 
-if(loginBtn) loginBtn.addEventListener('click', handleLogin);
-if(passwordInput) passwordInput.addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') handleLogin();
-});
+if (loginBtn) loginBtn.addEventListener('click', handleLogin);
+if (passwordInput) {
+    passwordInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') handleLogin();
+    });
+}
 
 function handleLogin() {
     if (passwordInput.value === 'ppdag@12345') {
@@ -71,12 +76,13 @@ function handleLogin() {
     }
 }
 
-if(logoutBtn) logoutBtn.addEventListener('click', function() {
-    localStorage.removeItem('isAdminLoggedIn');
-    checkSession();
-});
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', function() {
+        localStorage.removeItem('isAdminLoggedIn');
+        checkSession();
+    });
+}
 
-// Initialize on load
 document.addEventListener('DOMContentLoaded', checkSession);
 
 function showMsg(title, msg) {
@@ -114,9 +120,29 @@ function hideProcess() {
     processModal.classList.add('hidden');
 }
 
-function confirmReset(id, name) {
+function getPersonKey(nama, sekolah) {
+    return `${(nama || '').trim().toUpperCase()}|||${(sekolah || '').trim().toUpperCase()}`;
+}
+
+function buildProfiles() {
+    personProfilesMap = new Map();
+    allRecipients.forEach(r => {
+        const key = getPersonKey(r.nama, r.sekolah);
+        if (!personProfilesMap.has(key)) {
+            personProfilesMap.set(key, []);
+        }
+        personProfilesMap.get(key).push(r);
+    });
+
+    personProfilesMap.forEach(records => {
+        records.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
+    });
+}
+
+function confirmReset(id, name, sekolah) {
     resetTargetId.value = id;
     resetTargetName.textContent = name;
+    resetTargetRecipient = { id, name, sekolah };
     confirmResetModal.classList.remove('hidden');
 }
 
@@ -124,6 +150,7 @@ function closeResetModal() {
     confirmResetModal.classList.add('hidden');
     btnConfirmReset.innerHTML = 'Reset Status';
     btnConfirmReset.disabled = false;
+    resetTargetRecipient = null;
 }
 
 async function executeResetAll() {
@@ -154,7 +181,8 @@ async function executeResetAll() {
 }
 
 async function executeResetData() {
-    const id = resetTargetId.value;
+    if (!resetTargetRecipient) return;
+    const { name, sekolah } = resetTargetRecipient;
     btnConfirmReset.innerHTML = 'Memproses...';
     btnConfirmReset.disabled = true;
     
@@ -168,12 +196,12 @@ async function executeResetData() {
                 representative_name: null,
                 naik_pentas_status: false
             })
-            .eq('id', id);
+            .match({ nama: name, sekolah: sekolah });
 
         if (error) throw error;
         
         closeResetModal();
-        showMsg('Berjaya', 'Status kehadiran telah dikembalikan kepada Belum Hadir.');
+        showMsg('Berjaya', `Status kehadiran bagi ${name} telah dikembalikan kepada Belum Hadir.`);
         fetchData(); 
     } catch (error) {
         console.error("Error reset individu:", error);
@@ -199,10 +227,10 @@ function formatTime(dateString) {
 }
 
 async function fetchData() {
-    if(localStorage.getItem('isAdminLoggedIn') !== 'true') return;
+    if (localStorage.getItem('isAdminLoggedIn') !== 'true') return;
 
-    if(reportTableBody) reportTableBody.innerHTML = '';
-    if(tableLoading) tableLoading.classList.remove('hidden');
+    if (reportTableBody) reportTableBody.innerHTML = '';
+    if (tableLoading) tableLoading.classList.remove('hidden');
 
     try {
         const { data, error } = await supabaseClient
@@ -213,13 +241,14 @@ async function fetchData() {
 
         if (error) throw error;
         allRecipients = data || [];
+        buildProfiles();
         updateDashboard();
         renderTables();
     } catch (error) {
         console.error("Error fetching:", error);
         showMsg('Ralat', 'Gagal memuat turun data dari pelayan.');
     } finally {
-        if(tableLoading) tableLoading.classList.add('hidden');
+        if (tableLoading) tableLoading.classList.add('hidden');
     }
 }
 
@@ -241,16 +270,16 @@ function updateDashboard() {
         }
     });
 
-    if(statTotal) statTotal.textContent = total;
-    if(statHadir) statHadir.textContent = hadir;
-    if(statWakil) statWakil.textContent = wakil;
-    if(statTidakHadir) statTidakHadir.textContent = tidakHadir;
-    if(statBelum) statBelum.textContent = belum;
+    if (statTotal) statTotal.textContent = total;
+    if (statHadir) statHadir.textContent = hadir;
+    if (statWakil) statWakil.textContent = wakil;
+    if (statTidakHadir) statTidakHadir.textContent = tidakHadir;
+    if (statBelum) statBelum.textContent = belum;
 }
 
-if(filterStatus) filterStatus.addEventListener('change', renderTables);
-if(filterPentasStatus) filterPentasStatus.addEventListener('change', renderTables);
-if(filterKategori) filterKategori.addEventListener('change', renderTables);
+if (filterStatus) filterStatus.addEventListener('change', renderTables);
+if (filterPentasStatus) filterPentasStatus.addEventListener('change', renderTables);
+if (filterKategori) filterKategori.addEventListener('change', renderTables);
 
 async function toggleNaikPentas(id, currentStatus) {
     const newStatus = !currentStatus;
@@ -298,7 +327,7 @@ async function toggleNaikPentas(id, currentStatus) {
 }
 
 function renderTables() {
-    if(!reportTableBody) return;
+    if (!reportTableBody) return;
     
     const filterKehadiran = filterStatus ? filterStatus.value : 'ALL';
     const filterPentas = filterPentasStatus ? filterPentasStatus.value : 'ALL';
@@ -327,8 +356,36 @@ function renderTables() {
         let isModified = false;
         
         const isHadir = row.attendance_status === 'HADIR';
-        const noMejaText = row.no_meja ? `Meja: ${escapeHtml(row.no_meja)}` : 'Meja: -';
         
+        const pKey = getPersonKey(row.nama, row.sekolah);
+        const personRecords = personProfilesMap.get(pKey) || [row];
+        const primaryRecord = personRecords[0];
+        const totalAwards = personRecords.length;
+        const isPrimaryAward = (row.bil === primaryRecord.bil);
+        const primaryTable = primaryRecord.no_meja ? primaryRecord.no_meja : '-';
+
+        let tableDisplayHtml = '';
+        if (totalAwards > 1) {
+            tableDisplayHtml = `
+                <div class="mt-1 flex flex-col gap-0.5">
+                    <span class="text-xs font-bold text-blue-700 flex items-center gap-1">
+                        <span>🪑 Meja Utama Duduk:</span>
+                        <span class="bg-blue-100 text-blue-900 px-1.5 py-0.2 rounded font-mono">${escapeHtml(primaryTable)}</span>
+                    </span>
+                    <span class="text-[11px] text-gray-500">
+                        Meja Giliran Ini: <strong>${escapeHtml(row.no_meja || '-')}</strong>
+                        ${isPrimaryAward ? '<span class="text-blue-600 font-bold ml-1">(Giliran Terawal)</span>' : ''}
+                    </span>
+                </div>
+            `;
+        } else {
+            tableDisplayHtml = `
+                <div class="mt-1 text-xs font-semibold text-blue-600">
+                    Meja Duduk: <span class="font-bold text-blue-800">${escapeHtml(row.no_meja || '-')}</span>
+                </div>
+            `;
+        }
+
         if (isHadir) {
             isModified = true;
             if (row.attendance_type === 'WAKIL') {
@@ -345,10 +402,13 @@ function renderTables() {
             statusBadge = `<span class="px-2 py-1 inline-flex text-[11px] md:text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Belum Hadir</span>`;
         }
 
+        const safeNama = row.nama ? row.nama.replace(/'/g, "\\'") : '';
+        const safeSekolah = row.sekolah ? row.sekolah.replace(/'/g, "\\'") : '';
+
         const resetBtn = isModified ? 
-            `<button onclick="confirmReset('${row.id}', '${escapeHtml(row.nama.replace(/'/g, "\\'"))}')" class="mt-2 text-[10px] md:text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 border border-gray-300 py-1 px-2 rounded transition-colors inline-flex items-center w-max">
+            `<button onclick="confirmReset('${row.id}', '${safeNama}', '${safeSekolah}')" class="mt-2 text-[10px] md:text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 border border-gray-300 py-1 px-2 rounded transition-colors inline-flex items-center w-max">
                 <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                Reset
+                Reset Kehadiran
             </button>` : '';
 
         const isNaikPentas = !!row.naik_pentas_status;
@@ -360,6 +420,12 @@ function renderTables() {
         const giliranCircle = `<div class="inline-flex h-10 w-10 ${isNaikPentas ? 'bg-green-200 border-green-400 text-green-800' : 'bg-blue-100 border-blue-300 text-blue-800'} rounded-full items-center justify-center border-2 text-sm font-black mx-auto mb-2">
                         ${escapeHtml(row.bil)}
                     </div>`;
+
+        const multiAwardTag = totalAwards > 1 ? `
+            <span class="inline-flex items-center text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-300 ml-1">
+                ★ ${totalAwards} Anugerah
+            </span>
+        ` : '';
 
         html += `
             <tr id="row-${row.id}" class="${rowClass} border-b border-gray-100">
@@ -378,11 +444,13 @@ function renderTables() {
                     </div>
                 </td>
                 <td class="md:hidden px-3 py-4 align-top">
-                    <div class="text-sm font-bold text-gray-900 leading-tight mb-1 ${isNaikPentas ? 'line-through text-gray-500' : ''}">${escapeHtml(row.nama)}</div>
+                    <div class="text-sm font-bold text-gray-900 leading-tight mb-1 ${isNaikPentas ? 'line-through text-gray-500' : ''}">
+                        ${escapeHtml(row.nama)} ${multiAwardTag}
+                    </div>
                     <div class="text-[11px] text-gray-700 leading-tight mb-1">${escapeHtml(row.sekolah)}</div>
-                    <div class="text-[11px] font-semibold text-blue-600 mb-2">${noMejaText}</div>
+                    ${tableDisplayHtml}
                     
-                    <div class="bg-gray-50 p-2 rounded border border-gray-100">
+                    <div class="bg-gray-50 p-2 rounded border border-gray-100 mt-2">
                         <div class="flex items-center justify-between">
                             <div>${statusBadge}</div>
                             ${!isHadir ? `<span class="text-[10px] text-red-500 italic">*Tanda disekat</span>` : ''}
@@ -399,10 +467,12 @@ function renderTables() {
                     </div>
                 </td>
                 <td class="hidden md:table-cell px-6 py-4 align-middle">
-                    <div class="text-sm font-bold text-gray-900 ${isNaikPentas ? 'line-through text-gray-500' : ''}">${escapeHtml(row.nama)}</div>
+                    <div class="text-sm font-bold text-gray-900 ${isNaikPentas ? 'line-through text-gray-500' : ''}">
+                        ${escapeHtml(row.nama)} ${multiAwardTag}
+                    </div>
                     <div class="text-sm text-gray-700">${escapeHtml(row.sekolah)}</div>
-                    <div class="text-xs text-gray-500">${escapeHtml(row.kategori)}</div>
-                    <div class="text-xs font-semibold text-blue-600 mt-1">${noMejaText}</div>
+                    <div class="text-xs text-gray-500">${escapeHtml(row.kategori || '')}</div>
+                    ${tableDisplayHtml}
                 </td>
                 <td class="hidden md:table-cell px-4 py-4 align-top">
                     <div>${statusBadge}</div>
@@ -425,7 +495,7 @@ function renderTables() {
         `;
     });
     
-    if(html === '') {
+    if (html === '') {
         html = `<tr><td colspan="4" class="px-6 py-8 text-center text-gray-500 text-sm">Tiada rekod ditemui untuk tapisan ini.</td></tr>`;
     }
     reportTableBody.innerHTML = html;
@@ -447,11 +517,11 @@ function renderTables() {
     });
 
     if (wakilHtml === '') {
-        if(wakilEmpty) wakilEmpty.classList.remove('hidden');
-        if(wakilList) wakilList.innerHTML = `<li class="p-4 text-center text-gray-500 text-sm" id="wakilEmpty">Tiada rekod wakil berdasarkan tapisan.</li>`;
+        if (wakilEmpty) wakilEmpty.classList.remove('hidden');
+        if (wakilList) wakilList.innerHTML = `<li class="p-4 text-center text-gray-500 text-sm" id="wakilEmpty">Tiada rekod wakil berdasarkan tapisan.</li>`;
     } else {
-        if(wakilList) wakilList.innerHTML = wakilHtml;
-        if(wakilEmpty) wakilEmpty.classList.add('hidden');
+        if (wakilList) wakilList.innerHTML = wakilHtml;
+        if (wakilEmpty) wakilEmpty.classList.add('hidden');
     }
 }
 
@@ -504,8 +574,8 @@ if (csvFileInput) {
 
                     const mappedData = data.map((row, index) => {
                         const getVal = (possibleKeys) => {
-                            for(let key of Object.keys(row)) {
-                                if(possibleKeys.includes(key.trim().toUpperCase())) return row[key];
+                            for (let key of Object.keys(row)) {
+                                if (possibleKeys.includes(key.trim().toUpperCase())) return row[key];
                             }
                             return '';
                         };
@@ -513,7 +583,7 @@ if (csvFileInput) {
                         const idVal = getVal(['ID']);
                         const bilStr = getVal(['BIL', 'NO', 'BILANGAN']);
                         let parsedBil = parseInt(bilStr);
-                        if(isNaN(parsedBil)) parsedBil = index + 1; 
+                        if (isNaN(parsedBil)) parsedBil = index + 1; 
 
                         const attStatus = getVal(['ATTENDANCE_STATUS', 'STATUS KEHADIRAN']) || 'BELUM HADIR';
                         const attTimeStr = getVal(['ATTENDANCE_TIME', 'MASA']);
@@ -523,7 +593,6 @@ if (csvFileInput) {
                         const pentasStr = getVal(['NAIK_PENTAS_STATUS', 'STATUS PENTAS']);
                         const naikPentas = (pentasStr === 'true' || pentasStr === 'TRUE' || pentasStr === '1') ? true : false;
                         
-                        // Menambah sokongan lajur no_meja
                         const mejaVal = getVal(['NO_MEJA', 'NO MEJA', 'MEJA', 'TABLE']);
 
                         const record = {
@@ -596,3 +665,17 @@ async function executeClearData() {
         showMsg('Ralat', 'Gagal memadam data pangkalan data.');
     }
 }
+
+window.fetchData = fetchData;
+window.confirmReset = confirmReset;
+window.closeResetModal = closeResetModal;
+window.executeResetData = executeResetData;
+window.confirmResetAll = confirmResetAll;
+window.closeConfirmResetAllModal = closeConfirmResetAllModal;
+window.executeResetAll = executeResetAll;
+window.confirmClearData = confirmClearData;
+window.closeConfirmModal = closeConfirmModal;
+window.executeClearData = executeClearData;
+window.toggleNaikPentas = toggleNaikPentas;
+window.eksportDataCSV = eksportDataCSV;
+window.closeMsgModal = closeMsgModal;
