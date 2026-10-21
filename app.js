@@ -239,8 +239,9 @@ function updateCounts(filteredDataSet) {
     if (statTidakHadir) statTidakHadir.textContent = tidakHadir;
     if (statBelum) statBelum.textContent = belum;
     
-    if (countBelum && (!searchInput || !searchInput.value.trim())) countBelum.textContent = belumTabCount;
-    if (countTelah && (!searchInput || !searchInput.value.trim())) countTelah.textContent = telahTabCount;
+    // PEMBAIKAN: Kemas kini tab sentiasa berjalan, tidak disekat oleh teks carian
+    if (countBelum) countBelum.textContent = belumTabCount;
+    if (countTelah) countTelah.textContent = telahTabCount;
 }
 
 function processDataView() {
@@ -288,7 +289,7 @@ function processDataView() {
         }
     }
     
-    renderResults(dataToRender, query, selectedKat);
+    renderResults(dataToRender, query, category);
 }
 
 function renderResults(recipients, query, category) {
@@ -326,13 +327,14 @@ function renderResults(recipients, query, category) {
 
         const hasBelumHadir = records.some(s => s.attendance_status === 'BELUM HADIR');
         
-        const btnPukal = hasBelumHadir && currentTab === 'belum' && !query ? 
+        // PEMBAIKAN: Buang larangan (!query) agar butang pukal sentiasa muncul semasa di tab belum hadir
+        const btnPukal = hasBelumHadir && currentTab === 'belum' ? 
             `<button onclick="openWakilModalPukal('${escapeHtml(sekolah.replace(/'/g, "\\'"))}')" class="bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300 text-xs px-3 py-1.5 rounded shadow-sm font-bold flex items-center transition">
                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                 TANDA PUKAL WAKIL
             </button>` : '';
             
-        const btnPukalTidak = hasBelumHadir && currentTab === 'belum' && !query ? 
+        const btnPukalTidak = hasBelumHadir && currentTab === 'belum' ? 
             `<button onclick="confirmPukalTidakHadir('${escapeHtml(sekolah.replace(/'/g, "\\'"))}')" class="bg-red-100 hover:bg-red-200 text-red-800 border border-red-300 text-xs px-3 py-1.5 rounded shadow-sm font-bold flex items-center transition">
                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 TANDA PUKAL TIDAK HADIR
@@ -536,6 +538,23 @@ window.clearSearch = clearSearch;
 async function markHadir(name, sekolah) {
     const currentTime = new Date().toISOString();
 
+    // PEMBAIKAN: Kemas kini Optimistik UI supaya terasa serta-merta
+    let updated = false;
+    allData.forEach(r => {
+        if (r.nama === name && r.sekolah === sekolah) {
+            r.attendance_status = 'HADIR';
+            r.attendance_time = currentTime;
+            r.attendance_type = 'SENDIRI';
+            r.representative_name = null;
+            updated = true;
+        }
+    });
+
+    if (updated) {
+        personProfilesMap = buildPersonProfiles(allData);
+        processDataView();
+    }
+
     try {
         const { error } = await supabaseClient
             .from('recipients')
@@ -548,11 +567,10 @@ async function markHadir(name, sekolah) {
             .match({ nama: name, sekolah: sekolah });
 
         if (error) throw error;
-        fetchAllData(); 
-
     } catch (error) {
         console.error("Ralat tanda hadir:", error);
         showError("Gagal mengemaskini status kehadiran.");
+        fetchAllData(); // Kembalikan ke pangkalan data sebenar jika ralat
     }
 }
 
@@ -560,6 +578,23 @@ async function markTidakHadir(name, sekolah) {
     if (!confirm(`Mengesahkan ${name} sebagai TIDAK HADIR bagi semua giliran anugerah?`)) return;
     
     const currentTime = new Date().toISOString();
+
+    // PEMBAIKAN: Kemas kini Optimistik UI
+    let updated = false;
+    allData.forEach(r => {
+        if (r.nama === name && r.sekolah === sekolah) {
+            r.attendance_status = 'TIDAK HADIR';
+            r.attendance_time = currentTime;
+            r.attendance_type = null;
+            r.representative_name = null;
+            updated = true;
+        }
+    });
+
+    if (updated) {
+        personProfilesMap = buildPersonProfiles(allData);
+        processDataView();
+    }
 
     try {
         const { error } = await supabaseClient
@@ -573,11 +608,10 @@ async function markTidakHadir(name, sekolah) {
             .match({ nama: name, sekolah: sekolah });
 
         if (error) throw error;
-        fetchAllData(); 
-
     } catch (error) {
         console.error("Ralat tanda tidak hadir:", error);
         showError("Gagal mengemaskini status tidak hadir.");
+        fetchAllData();
     }
 }
 
@@ -595,6 +629,18 @@ async function confirmPukalTidakHadir(sekolah) {
     const idsToUpdate = pendingStudents.map(s => s.id);
     
     if (idsToUpdate.length > 0) {
+        // PEMBAIKAN: Kemas kini Optimistik UI
+        allData.forEach(r => {
+            if (idsToUpdate.includes(r.id)) {
+                r.attendance_status = 'TIDAK HADIR';
+                r.attendance_time = currentTime;
+                r.attendance_type = null;
+                r.representative_name = null;
+            }
+        });
+        personProfilesMap = buildPersonProfiles(allData);
+        processDataView();
+
         try {
             const { error } = await supabaseClient
                 .from('recipients')
@@ -607,10 +653,10 @@ async function confirmPukalTidakHadir(sekolah) {
                 .in('id', idsToUpdate);
 
             if (error) throw error;
-            fetchAllData();
         } catch (error) {
             console.error("Ralat pukal tidak hadir:", error);
             showError("Gagal mengemaskini pukal tidak hadir.");
+            fetchAllData();
         }
     } else {
         alert("Tiada penerima yang sepadan untuk ditandakan.");
@@ -682,6 +728,16 @@ async function saveWakil() {
             const nameSpan = document.getElementById('modalRecipientName');
             const nameToUpdate = nameSpan ? nameSpan.innerText : '';
             
+            // PEMBAIKAN: Kemas kini Optimistik UI
+            allData.forEach(r => {
+                if (r.nama === nameToUpdate && r.sekolah === sekolahToUpdate) {
+                    r.attendance_status = 'HADIR';
+                    r.attendance_time = currentTime;
+                    r.attendance_type = 'WAKIL';
+                    r.representative_name = wakilType;
+                }
+            });
+
             const { error } = await supabaseClient
                 .from('recipients')
                 .update({ 
@@ -704,6 +760,16 @@ async function saveWakil() {
             const idsToUpdate = pendingStudents.map(s => s.id);
 
             if (idsToUpdate.length > 0) {
+                // PEMBAIKAN: Kemas kini Optimistik UI
+                allData.forEach(r => {
+                    if (idsToUpdate.includes(r.id)) {
+                        r.attendance_status = 'HADIR';
+                        r.attendance_time = currentTime;
+                        r.attendance_type = 'WAKIL';
+                        r.representative_name = wakilType;
+                    }
+                });
+
                 const { error } = await supabaseClient
                     .from('recipients')
                     .update({ 
@@ -721,11 +787,15 @@ async function saveWakil() {
         }
         
         closeWakilModal();
-        fetchAllData(); 
+        
+        // Terus papar perubahan di skrin
+        personProfilesMap = buildPersonProfiles(allData);
+        processDataView(); 
 
     } catch (error) {
         console.error("Ralat daftar wakil:", error);
         showError("Gagal merekod maklumat wakil.");
+        fetchAllData(); // Kembalikan ke pangkalan data sebenar jika ralat
     } finally {
         if (saveWakilBtn) {
             saveWakilBtn.disabled = false;
