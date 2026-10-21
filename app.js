@@ -433,17 +433,17 @@ function renderResults(recipients, query, category) {
                         
                         <div class="flex flex-col md:flex-row gap-4 w-full lg:w-auto flex-1 items-start">
                             
-                            <!-- Tiga Kotak Maklumat Bersebelahan -->
+                            <!-- Tiga Kotak Maklumat Bersebelahan (Design Baru) -->
                             <div class="flex gap-2 flex-shrink-0">
-                                <div class="border-2 border-slate-800 flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center bg-white p-1 shadow-sm rounded-sm">
+                                <div class="border border-slate-700 flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center bg-white p-1">
                                     <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">No<br>Giliran</span>
-                                    <span class="text-xl font-black text-slate-900 mt-0.5">${escapeHtml(row.bil)}</span>
+                                    <span class="text-xl font-black text-slate-800 mt-0.5">${escapeHtml(row.bil)}</span>
                                 </div>
-                                <div class="border-2 border-slate-800 flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center bg-white p-1 shadow-sm rounded-sm">
+                                <div class="border border-slate-700 flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center bg-white p-1">
                                     <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">No<br>Meja</span>
-                                    <span class="text-base font-black text-slate-900 mt-0.5 break-all leading-tight">${escapeHtml(currentAwardTableShort)}</span>
+                                    <span class="text-base font-black text-slate-800 mt-0.5 break-all leading-tight">${escapeHtml(currentAwardTableShort)}</span>
                                 </div>
-                                <div class="border-2 border-slate-800 flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center bg-white p-1 shadow-sm rounded-sm">
+                                <div class="border border-slate-700 flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center bg-white p-1">
                                     <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">Status<br>Meja</span>
                                     <span class="text-[10px] font-bold ${statusMejaUtamaClass} mt-0.5 leading-tight">${statusMejaUtamaText}</span>
                                 </div>
@@ -462,7 +462,7 @@ function renderResults(recipients, query, category) {
                                     </span>
                                     ${pentasBadge}
                                 </div>
-                                <h3 class="text-xl lg:text-2xl font-black text-gray-900 uppercase tracking-tight leading-tight">${escapeHtml(row.nama)}</h3>
+                                <h3 class="text-xl lg:text-2xl font-black text-slate-900 uppercase tracking-tight leading-tight">${escapeHtml(row.nama)}</h3>
                                 ${statusHtml}
                             </div>
                         </div>
