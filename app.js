@@ -226,7 +226,7 @@ function updateCounts(filteredDataSet) {
             telahTabCount++;
         } else if (r.attendance_status === 'TIDAK HADIR') {
             tidakHadir++;
-            belumTabCount++; // Tidak hadir masih dianggap dalam tab 'belum' untuk dipaparkan / dikemaskini
+            belumTabCount++;
         } else {
             belum++; 
             belumTabCount++;
@@ -433,9 +433,9 @@ function renderResults(recipients, query, category) {
                     seatingHtml = `
                         <div class="subsequent-seat-tag rounded-lg p-2.5 mb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div class="flex items-center gap-2">
-                                <span class="text-xl">⚠️</span>
+                                <span class="text-xl">🪑</span>
                                 <div>
-                                    <div class="text-xs font-bold text-slate-700">Meja Anugerah (Simbolik): <span class="text-lg font-black">${escapeHtml(row.no_meja || '-')}</span></div>
+                                    <div class="text-xs font-bold text-slate-700">Meja Duduk: <span class="text-lg font-black text-blue-900">${primaryTableLabel}</span></div>
                                     <div class="text-[11px] text-slate-500 font-medium">Sila kekal di meja utama <strong class="text-blue-900">${primaryTableLabel}</strong> (Giliran #${escapeHtml(profile.primaryBil)})</div>
                                 </div>
                             </div>
@@ -448,10 +448,13 @@ function renderResults(recipients, query, category) {
                     `;
                 }
             } else {
+                const singleTableLabel = (row.no_meja && row.no_meja.toString().trim() !== '') 
+                    ? (row.no_meja.toString().toUpperCase().startsWith('MEJA') ? escapeHtml(row.no_meja) : 'MEJA ' + escapeHtml(row.no_meja))
+                    : '-';
                 seatingHtml = `
                     <div class="mb-2 text-xs font-semibold text-blue-700 flex items-center gap-2">
                         <span>🪑 Meja Duduk Fizikal:</span>
-                        <span class="bg-blue-100 text-blue-900 px-2.5 py-0.5 rounded font-bold font-mono text-sm">${escapeHtml(row.no_meja || '-')}</span>
+                        <span class="bg-blue-100 text-blue-900 px-2.5 py-0.5 rounded font-bold font-mono text-sm">${singleTableLabel}</span>
                     </div>
                 `;
             }

@@ -362,7 +362,10 @@ function renderTables() {
         const primaryRecord = personRecords[0];
         const totalAwards = personRecords.length;
         const isPrimaryAward = (row.bil === primaryRecord.bil);
-        const primaryTable = primaryRecord.no_meja ? primaryRecord.no_meja : '-';
+        const rawPrimaryTable = primaryRecord.no_meja ? primaryRecord.no_meja : '-';
+        const primaryTableFormatted = (rawPrimaryTable && rawPrimaryTable !== '-')
+            ? (rawPrimaryTable.toString().toUpperCase().startsWith('MEJA') ? rawPrimaryTable : 'MEJA ' + rawPrimaryTable)
+            : '-';
         const awardIndex = personRecords.findIndex(r => r.bil === row.bil) + 1;
 
         let tableDisplayHtml = '';
@@ -372,7 +375,7 @@ function renderTables() {
                     <div class="mt-1.5 flex flex-col gap-1 p-2 bg-blue-50 border border-blue-200 rounded">
                         <span class="text-xs font-bold text-blue-800 flex items-center gap-1.5">
                             🪑 Meja Duduk Fizikal (Utama):
-                            <span class="bg-blue-600 text-white px-2 py-0.5 rounded shadow-sm">${escapeHtml(primaryTable)}</span>
+                            <span class="bg-blue-600 text-white px-2 py-0.5 rounded shadow-sm">${escapeHtml(primaryTableFormatted)}</span>
                         </span>
                     </div>
                 `;
@@ -380,16 +383,19 @@ function renderTables() {
                 tableDisplayHtml = `
                     <div class="mt-1.5 flex flex-col gap-1 p-2 bg-slate-50 border border-dashed border-slate-300 rounded">
                         <div class="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                            ⚠️ Meja Anugerah (Simbolik): <span class="bg-slate-200 px-1.5 py-0.5 rounded">${escapeHtml(row.no_meja || '-')}</span>
+                            🪑 Meja Duduk: <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">${escapeHtml(primaryTableFormatted)}</span>
                         </div>
-                        <div class="text-[10px] text-red-600 font-semibold italic">Kekal di meja utama: ${escapeHtml(primaryTable)}</div>
+                        <div class="text-[10px] text-slate-500 font-medium italic">Kekal di meja utama ${escapeHtml(primaryTableFormatted)} (Giliran #${escapeHtml(primaryRecord.bil)})</div>
                     </div>
                 `;
             }
         } else {
+            const singleTableFormatted = (row.no_meja && row.no_meja.toString().trim() !== '')
+                ? (row.no_meja.toString().toUpperCase().startsWith('MEJA') ? row.no_meja : 'MEJA ' + row.no_meja)
+                : '-';
             tableDisplayHtml = `
                 <div class="mt-1.5 text-[11px] font-semibold text-blue-700 flex items-center gap-1">
-                    🪑 Meja Duduk Fizikal: <span class="font-bold text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded">${escapeHtml(row.no_meja || '-')}</span>
+                    🪑 Meja Duduk Fizikal: <span class="font-bold text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded">${escapeHtml(singleTableFormatted)}</span>
                 </div>
             `;
         }
