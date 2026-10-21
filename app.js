@@ -373,10 +373,6 @@ function renderResults(recipients, query, category) {
             const isPrimaryAward = (row.bil === profile.primaryBil);
             const awardIndex = isMultiAward ? (profile.allRecords.findIndex(r => r.bil === row.bil) + 1) : 1;
 
-            const primaryTableLabel = (profile.primaryTable && profile.primaryTable !== '-') 
-                ? `${escapeHtml(profile.primaryTable.toString().toUpperCase().startsWith('MEJA') ? profile.primaryTable : 'MEJA ' + profile.primaryTable)}`
-                : 'BELUM DITETAPKAN';
-
             const cardBorderClass = isMultiAward 
                 ? (isPrimaryAward ? 'award-card-first' : 'award-card-subsequent') 
                 : '';
@@ -384,6 +380,23 @@ function renderResults(recipients, query, category) {
             const safeNama = row.nama ? row.nama.replace(/'/g, "\\'") : '';
             const safeSekolah = row.sekolah ? row.sekolah.replace(/'/g, "\\'") : '';
             const actionDomId = `act-row-${row.id}`;
+
+            const rawCurrentTable = (row.no_meja && row.no_meja.toString().trim() !== '') ? row.no_meja.toString().toUpperCase() : '-';
+            const currentAwardTableShort = rawCurrentTable.replace(/^MEJA\s*/, '');
+            const primaryTableShort = (profile.primaryTable && profile.primaryTable !== '-') 
+                ? profile.primaryTable.toString().toUpperCase().replace(/^MEJA\s*/, '')
+                : '-';
+
+            let statusMejaUtamaText = 'MEJA<br>UTAMA';
+            let statusMejaUtamaClass = 'text-blue-700';
+
+            if (isMultiAward && !isPrimaryAward) {
+                statusMejaUtamaText = `DUDUK<br>MEJA ${escapeHtml(primaryTableShort)}`;
+                statusMejaUtamaClass = 'text-amber-600';
+            } else if (rawCurrentTable === '-') {
+                statusMejaUtamaText = 'TIADA<br>MEJA';
+                statusMejaUtamaClass = 'text-gray-400';
+            }
 
             let statusHtml = '';
             let actionHtml = '';
@@ -403,72 +416,11 @@ function renderResults(recipients, query, category) {
                         </div>`;
                 }
             } else if (row.attendance_status === 'TIDAK HADIR') {
-                statusHtml = `<div class="text-red-600 font-bold flex items-center text-sm"><span class="mr-1.5">🔴</span> Tidak Hadir</div>`;
+                statusHtml = `<div class="text-red-600 font-bold flex items-center text-sm mt-1"><span class="mr-1.5">🔴</span> Tidak Hadir</div>`;
                 actionHtml = generateActionButtons(row.id, safeNama, safeSekolah, row.attendance_status);
             } else {
-                statusHtml = `<div class="text-yellow-600 font-bold flex items-center text-sm"><span class="mr-1.5">🟡</span> Belum Hadir</div>`;
+                statusHtml = `<div class="text-yellow-600 font-bold flex items-center text-sm mt-1"><span class="mr-1.5">🟡</span> Belum Hadir</div>`;
                 actionHtml = generateActionButtons(row.id, safeNama, safeSekolah, row.attendance_status);
-            }
-
-            let seatingHtml = '';
-            if (isMultiAward) {
-                if (isPrimaryAward) {
-                    seatingHtml = `
-                        <div class="primary-table-card rounded-lg p-3 mb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-9 h-9 rounded-full primary-table-badge flex items-center justify-center font-black text-base flex-shrink-0">
-                                    🪑
-                                </div>
-                                <div>
-                                    <span class="text-[10px] font-black tracking-wider text-blue-700 uppercase block">Meja Duduk Fizikal (Utama)</span>
-                                    <span class="text-lg font-black text-blue-900 tracking-tight">${primaryTableLabel}</span>
-                                </div>
-                            </div>
-                            <div class="text-xs text-blue-800 bg-white/90 px-2.5 py-1 rounded border border-blue-200 font-bold flex items-center gap-1">
-                                <span>★ Giliran Terawal (${awardIndex}/${profile.totalAwards})</span>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    const currentAwardTable = (row.no_meja && row.no_meja.toString().trim() !== '') 
-                        ? (row.no_meja.toString().toUpperCase().startsWith('MEJA') ? escapeHtml(row.no_meja) : 'MEJA ' + escapeHtml(row.no_meja))
-                        : '-';
-
-                    seatingHtml = `
-                        <div class="subsequent-seat-tag rounded-lg p-2.5 mb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <div class="flex items-center gap-2.5">
-                                <span class="text-xl">🪑</span>
-                                <div>
-                                    <div class="text-xs font-bold text-slate-800 flex flex-wrap items-center gap-1.5">
-                                        <span>NO MEJA:</span>
-                                        <span class="text-lg font-black text-gray-900">${currentAwardTable}</span>
-                                        <span class="inline-flex items-center text-xs font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded border border-blue-200">
-                                            Duduk di: ${primaryTableLabel}
-                                        </span>
-                                    </div>
-                                    <div class="text-[11px] text-slate-500 font-medium mt-0.5">
-                                        Sila kekal di meja utama <strong class="text-blue-900">${primaryTableLabel}</strong> (Giliran #${escapeHtml(profile.primaryBil)})
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-1.5 text-[11px] mt-2 sm:mt-0">
-                                <span class="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded border border-amber-300 shadow-sm">
-                                    Anugerah ${awardIndex}/${profile.totalAwards}
-                                </span>
-                            </div>
-                        </div>
-                    `;
-                }
-            } else {
-                const singleTableLabel = (row.no_meja && row.no_meja.toString().trim() !== '') 
-                    ? (row.no_meja.toString().toUpperCase().startsWith('MEJA') ? escapeHtml(row.no_meja) : 'MEJA ' + escapeHtml(row.no_meja))
-                    : '-';
-                seatingHtml = `
-                    <div class="mb-2 text-xs font-semibold text-blue-700 flex items-center gap-2">
-                        <span>🪑 Meja Duduk Fizikal:</span>
-                        <span class="bg-blue-100 text-blue-900 px-2.5 py-0.5 rounded font-bold font-mono text-sm">${singleTableLabel}</span>
-                    </div>
-                `;
             }
 
             const pentasBadge = row.naik_pentas_status 
@@ -476,32 +428,49 @@ function renderResults(recipients, query, category) {
                 : '';
 
             html += `
-                <div class="p-5 flex flex-col lg:flex-row justify-between items-start lg:items-center hover:bg-gray-50 transition duration-150 gap-4 ${cardBorderClass}">
-                    <div class="w-full lg:w-2/3">
-                        <div class="flex flex-wrap items-center gap-2 mb-1.5">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black font-mono bg-blue-100 text-blue-800 border border-blue-300 shadow-xs">
-                                Giliran #${escapeHtml(row.bil)}
-                            </span>
-                            ${isMultiAward ? `
-                                <span class="multi-badge inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold shadow-xs">
-                                    ★ Anugerah ${awardIndex} daripada${profile.totalAwards}
-                                </span>
-                            ` : ''}
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-700 border border-gray-200">
-                                ${escapeHtml(row.kategori || '-')}
-                            </span>
-                            ${pentasBadge}
+                <div class="p-5 hover:bg-gray-50 transition duration-150 border-b border-gray-100 ${cardBorderClass}">
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5">
+                        
+                        <div class="flex flex-col md:flex-row gap-4 w-full lg:w-auto flex-1 items-start">
+                            
+                            <!-- Tiga Kotak Maklumat Bersebelahan -->
+                            <div class="flex gap-2 flex-shrink-0">
+                                <div class="border-2 border-slate-800 flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center bg-white p-1 shadow-sm rounded-sm">
+                                    <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">No<br>Giliran</span>
+                                    <span class="text-xl font-black text-slate-900 mt-0.5">${escapeHtml(row.bil)}</span>
+                                </div>
+                                <div class="border-2 border-slate-800 flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center bg-white p-1 shadow-sm rounded-sm">
+                                    <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">No<br>Meja</span>
+                                    <span class="text-base font-black text-slate-900 mt-0.5 break-all leading-tight">${escapeHtml(currentAwardTableShort)}</span>
+                                </div>
+                                <div class="border-2 border-slate-800 flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center bg-white p-1 shadow-sm rounded-sm">
+                                    <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">Status<br>Meja</span>
+                                    <span class="text-[10px] font-bold ${statusMejaUtamaClass} mt-0.5 leading-tight">${statusMejaUtamaText}</span>
+                                </div>
+                            </div>
+
+                            <!-- Nama & Maklumat Tambahan Penerima -->
+                            <div class="flex flex-col justify-center flex-1 w-full">
+                                <div class="flex flex-wrap items-center gap-2 mb-1.5">
+                                    ${isMultiAward ? `
+                                        <span class="multi-badge inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold shadow-xs">
+                                            ★ Anugerah ${awardIndex} daripada${profile.totalAwards}
+                                        </span>
+                                    ` : ''}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                                        ${escapeHtml(row.kategori || '-')}
+                                    </span>
+                                    ${pentasBadge}
+                                </div>
+                                <h3 class="text-xl lg:text-2xl font-black text-gray-900 uppercase tracking-tight leading-tight">${escapeHtml(row.nama)}</h3>
+                                ${statusHtml}
+                            </div>
                         </div>
 
-                        <h3 class="text-lg font-bold text-gray-900 mb-2">${escapeHtml(row.nama)}</h3>
-
-                        ${seatingHtml}
-
-                        ${statusHtml}
-                    </div>
-
-                    <div class="w-full lg:w-auto flex flex-col sm:flex-row flex-wrap gap-2 justify-end" id="${actionDomId}">
-                        ${actionHtml}
+                        <!-- Butang Tindakan -->
+                        <div class="w-full lg:w-auto flex flex-col sm:flex-row flex-wrap gap-2 justify-end shrink-0 mt-2 lg:mt-0" id="${actionDomId}">
+                            ${actionHtml}
+                        </div>
                     </div>
                 </div>
             `;
