@@ -444,27 +444,42 @@ function renderResults(recipients, query, category) {
                 ? '<span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-300 ml-2">✓ Selesai Pentas</span>'
                 : '';
 
+            // Penjanaan Dinamik Kotak Maklumat
+            let boxesHtml = `
+                <div class="flex gap-2 flex-shrink-0">
+                    <!-- Kotak 1: No Meja (Kini Pertama) -->
+                    <div class="flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center p-1 shadow-sm ${box2Classes}">
+                        <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">No<br>Meja</span>
+                        <span class="text-base font-black text-slate-800 mt-0.5 break-all leading-tight">${escapeHtml(currentAwardTableShort)}</span>
+                    </div>
+
+                    <!-- Kotak 2: No Giliran (Kini Kedua) -->
+                    <div class="flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center p-1 shadow-sm ${box1Classes}">
+                        <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">No<br>Giliran</span>
+                        <span class="text-xl font-black text-slate-800 mt-0.5">${escapeHtml(row.bil)}</span>
+                    </div>
+            `;
+
+            // Kotak 3: Status Meja (Hanya untuk anugerah berganda)
+            if (isMultiAward) {
+                boxesHtml += `
+                    <div class="flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center p-1 shadow-sm ${box3Classes}">
+                        <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">Status<br>Meja</span>
+                        <span class="text-[10px] font-black ${statusMejaUtamaClass} mt-0.5 leading-tight">${statusMejaUtamaText}</span>
+                    </div>
+                `;
+            }
+
+            boxesHtml += `</div>`;
+
             html += `
                 <div class="p-5 hover:bg-gray-50 transition duration-150 border-b border-gray-100 ${cardBorderClass}">
                     <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5">
                         
                         <div class="flex flex-col md:flex-row gap-4 w-full lg:w-auto flex-1 items-start">
                             
-                            <!-- Tiga Kotak Maklumat Bersebelahan (Design Berwarna) -->
-                            <div class="flex gap-2 flex-shrink-0">
-                                <div class="flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center p-1 shadow-sm ${box1Classes}">
-                                    <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">No<br>Giliran</span>
-                                    <span class="text-xl font-black text-slate-800 mt-0.5">${escapeHtml(row.bil)}</span>
-                                </div>
-                                <div class="flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center p-1 shadow-sm ${box2Classes}">
-                                    <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">No<br>Meja</span>
-                                    <span class="text-base font-black text-slate-800 mt-0.5 break-all leading-tight">${escapeHtml(currentAwardTableShort)}</span>
-                                </div>
-                                <div class="flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center p-1 shadow-sm ${box3Classes}">
-                                    <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">Status<br>Meja</span>
-                                    <span class="text-[10px] font-black ${statusMejaUtamaClass} mt-0.5 leading-tight">${statusMejaUtamaText}</span>
-                                </div>
-                            </div>
+                            <!-- Kotak Maklumat Bersebelahan -->
+                            ${boxesHtml}
 
                             <!-- Nama & Maklumat Tambahan Penerima -->
                             <div class="flex flex-col justify-center flex-1 w-full">
