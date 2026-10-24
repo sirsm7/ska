@@ -195,7 +195,7 @@ async function executeResetAll() {
     if (currentRole !== 'SUPERADMIN') return;
     
     closeConfirmResetAllModal();
-    showProcess('Melaksanakan reset pukal...');
+    showProcess('Melaksanakan reset pukal kehadiran & RSVP...');
     try {
         const { error } = await supabaseClient
             .from('recipients')
@@ -204,14 +204,16 @@ async function executeResetAll() {
                 attendance_time: null,
                 attendance_type: null,
                 representative_name: null,
-                naik_pentas_status: false
+                naik_pentas_status: false,
+                rsvp_status: 'BELUM SAH',
+                rsvp_time: null
             })
             .neq('id', '00000000-0000-0000-0000-000000000000'); 
 
         if (error) throw error;
         
         hideProcess();
-        showMsg('Berjaya', 'Semua status kehadiran & pentas telah dikembalikan kepada asal.');
+        showMsg('Berjaya', 'Semua status kehadiran, pengesahan awal (RSVP) & pentas telah dikembalikan kepada asal.');
         fetchData(); 
     } catch (error) {
         console.error("Error reset pukal:", error);
@@ -234,14 +236,16 @@ async function executeResetData() {
                 attendance_time: null,
                 attendance_type: null,
                 representative_name: null,
-                naik_pentas_status: false
+                naik_pentas_status: false,
+                rsvp_status: 'BELUM SAH',
+                rsvp_time: null
             })
             .match({ nama: name, sekolah: sekolah });
 
         if (error) throw error;
         
         closeResetModal();
-        showMsg('Berjaya', `Status kehadiran bagi ${name} telah dikembalikan kepada Belum Hadir.`);
+        showMsg('Berjaya', `Status kehadiran dan RSVP bagi ${name} telah dikembalikan kepada asal.`);
         fetchData(); 
     } catch (error) {
         console.error("Error reset individu:", error);

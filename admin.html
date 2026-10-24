@@ -229,9 +229,9 @@
                 <div class="bg-amber-100 rounded-full p-2.5 mr-3">
                     <svg class="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 </div>
-                <h3 class="text-lg font-bold text-gray-900">Reset Pukal Kehadiran</h3>
+                <h3 class="text-lg font-bold text-gray-900">Reset Pukal Kehadiran & RSVP</h3>
             </div>
-            <p class="text-gray-600 mb-6 text-sm leading-relaxed">Adakah anda pasti mahu menetapkan semula status kehadiran untuk <strong>semua penerima</strong> kembali kepada 'Belum Hadir'? Maklumat waktu dan wakil akan dipadamkan, serta status naik pentas akan dikosongkan. Senarai nama penerima tidak akan dipadam.</p>
+            <p class="text-gray-600 mb-6 text-sm leading-relaxed">Adakah anda pasti mahu menetapkan semula status kehadiran untuk <strong>semua penerima</strong> kembali kepada 'Belum Hadir'? Maklumat waktu, wakil, status pengesahan awal (RSVP), dan masa RSVP akan dipadamkan atau ditetapkan semula kepada 'BELUM SAH', serta status naik pentas akan dikosongkan. Senarai nama penerima tidak akan dipadam.</p>
             <div class="flex justify-end gap-3">
                 <button onclick="closeConfirmResetAllModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg text-sm transition">Batal</button>
                 <button onclick="executeResetAll()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition">Teruskan Reset Pukal</button>
@@ -261,9 +261,9 @@
                 <div class="bg-amber-100 rounded-full p-2.5 mr-3">
                     <svg class="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 </div>
-                <h3 class="text-lg font-bold text-gray-900">Reset Status Kehadiran Individu</h3>
+                <h3 class="text-lg font-bold text-gray-900">Reset Status Kehadiran & RSVP Individu</h3>
             </div>
-            <p class="text-gray-600 mb-6 text-sm leading-relaxed">Anda pasti mahu reset status kehadiran bagi <span id="resetTargetName" class="font-bold text-gray-900"></span> kepada 'Belum Hadir'? Semua rekod anugerah penerima ini akan dikembalikan kepada Belum Hadir serta status pentas akan ditetapkan semula.</p>
+            <p class="text-gray-600 mb-6 text-sm leading-relaxed">Anda pasti mahu reset status kehadiran bagi <span id="resetTargetName" class="font-bold text-gray-900"></span> kepada 'Belum Hadir'? Semua rekod anugerah penerima ini akan dikembalikan kepada Belum Hadir, status RSVP dikembalikan kepada 'BELUM SAH', serta status pentas akan ditetapkan semula.</p>
             <input type="hidden" id="resetTargetId">
             <div class="flex justify-end gap-3">
                 <button onclick="closeResetModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg text-sm transition">Batal</button>
