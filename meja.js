@@ -5,6 +5,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let allRecipients = [];
 let groupedTables = {};
 let activeTableShortcut = null;
+let currentRole = null;
 
 const searchTableInput = document.getElementById('searchTableInput');
 const resetSearchBtn = document.getElementById('resetSearchBtn');
@@ -15,6 +16,7 @@ const emptyIndicator = document.getElementById('emptyIndicator');
 const tableShortcutsContainer = document.getElementById('tableShortcutsContainer');
 
 const statTotalTables = document.getElementById('statTotalTables');
+const statTotalRsvp = document.getElementById('statTotalRsvp');
 const statFullTables = document.getElementById('statFullTables');
 const statPartialTables = document.getElementById('statPartialTables');
 const statEmptyTables = document.getElementById('statEmptyTables');
@@ -26,13 +28,33 @@ const modalTableStats = document.getElementById('modalTableStats');
 const modalParticipantList = document.getElementById('modalParticipantList');
 const closeTableModalBtn = document.getElementById('closeTableModalBtn');
 const logoutBtn = document.getElementById('logoutBtn');
+const roleIndicator = document.getElementById('roleIndicator');
 
 function checkSession() {
-    if (localStorage.getItem('isAdminLoggedIn') !== 'true') {
+    const savedRole = localStorage.getItem('adminRole');
+    
+    if (savedRole === 'SUPERADMIN' || savedRole === 'PENGURUS') {
+        currentRole = savedRole;
+        
+        if (currentRole === 'PENGURUS') {
+            if (roleIndicator) {
+                roleIndicator.classList.remove('hidden');
+                roleIndicator.textContent = 'PENGURUS PESERTA';
+            }
+        } else {
+            if (roleIndicator) {
+                roleIndicator.classList.remove('hidden');
+                roleIndicator.textContent = 'SUPER ADMIN';
+                roleIndicator.classList.replace('bg-blue-800', 'bg-red-700');
+                roleIndicator.classList.replace('border-blue-400', 'border-red-400');
+            }
+        }
+        return true;
+    } else {
+        currentRole = null;
         window.location.href = 'admin.html';
         return false;
     }
-    return true;
 }
 
 window.addEventListener('pageshow', function (event) {
@@ -50,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function setupEventListeners() {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('isAdminLoggedIn');
+            localStorage.removeItem('adminRole');
             window.location.href = 'admin.html';
         });
     }
@@ -153,7 +175,6 @@ window.fetchTableData = fetchTableData;
 function groupDataByTable() {
     groupedTables = {};
 
-    // Kumpul semua rekod mengikut nama dan sekolah (untuk tentukan jumlah anugerah keseluruhan individu)
     const personMap = new Map();
     allRecipients.forEach(r => {
         const pKey = `${(r.nama || '').trim().toUpperCase()}|||${(r.sekolah || '').trim().toUpperCase()}`;
@@ -163,7 +184,6 @@ function groupDataByTable() {
         personMap.get(pKey).push(r);
     });
 
-    // Setiap rekod anugerah adalah entiti berasingan yang perlu duduk di mejanya
     allRecipients.forEach(rec => {
         let tableKey = rec.no_meja ? rec.no_meja.trim().toUpperCase() : 'TANPA MEJA'; 
         
@@ -180,7 +200,6 @@ function groupDataByTable() {
         const pKey = `${(rec.nama || '').trim().toUpperCase()}|||${(rec.sekolah || '').trim().toUpperCase()}`;
         const allPersonRecords = personMap.get(pKey);
         
-        // Cari status kehadiran bersatu untuk individu ini
         const isAnyHadir = allPersonRecords.some(r => r.attendance_status === 'HADIR');
         const isAllTidakHadir = allPersonRecords.length > 0 && allPersonRecords.every(r => r.attendance_status === 'TIDAK HADIR');
         
@@ -188,6 +207,7 @@ function groupDataByTable() {
         let latestTime = null;
         let unifiedType = null;
         let unifiedRep = null;
+        let primaryRsvpStatus = 'BELUM SAH';
 
         if (isAnyHadir) {
             unifiedStatus = 'HADIR';
@@ -199,7 +219,12 @@ function groupDataByTable() {
             unifiedStatus = 'TIDAK HADIR';
         }
 
-        // Tentukan sama ada ini adalah giliran terakhir beliau
+        // Dapatkan status RSVP dari rekod utama penerima
+        const primaryRec = allPersonRecords[0];
+        if (primaryRec && primaryRec.rsvp_status) {
+            primaryRsvpStatus = primaryRec.rsvp_status;
+        }
+
         allPersonRecords.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
         const currentIndex = allPersonRecords.findIndex(r => r.id === rec.id);
         const hasNext = currentIndex < (allPersonRecords.length - 1);
@@ -227,6 +252,7 @@ function groupDataByTable() {
             attendance_time: latestTime,
             attendance_type: unifiedType,
             representative_name: unifiedRep,
+            rsvp_status: primaryRsvpStatus,
             totalAwards: allPersonRecords.length,
             awardIndex: currentIndex + 1,
             hasNext: hasNext,
@@ -246,6 +272,9 @@ function updateOverviewCards() {
     let partial = 0;
     let empty = 0;
     let totalSeatedPersons = 0;
+    
+    // Set unik untuk kira bilangan individu (elak kira dua kali untuk anugerah berganda)
+    let uniqueRsvpSet = new Set();
 
     tableKeys.forEach(tableKey => {
         const tableData = groupedTables[tableKey];
@@ -254,6 +283,13 @@ function updateOverviewCards() {
         const totalInTable = seated.length;
         const hadirCount = seated.filter(p => p.attendance_status === 'HADIR').length;
         
+        seated.forEach(p => {
+            if (p.rsvp_status && p.rsvp_status !== 'BELUM SAH') {
+                const pKey = `${p.nama}|||${p.sekolah}`;
+                uniqueRsvpSet.add(pKey);
+            }
+        });
+
         totalSeatedPersons += totalInTable;
 
         if (totalInTable > 0 && hadirCount === totalInTable) {
@@ -266,6 +302,7 @@ function updateOverviewCards() {
     });
 
     if (statTotalTables) statTotalTables.textContent = tableKeys.length;
+    if (statTotalRsvp) statTotalRsvp.textContent = uniqueRsvpSet.size;
     if (statFullTables) statFullTables.textContent = full;
     if (statPartialTables) statPartialTables.textContent = partial;
     if (statEmptyTables) statEmptyTables.textContent = empty;
@@ -437,6 +474,13 @@ function renderTableGrid() {
                 const p = seated[i];
                 let slotColor = 'bg-gray-200 border-gray-300 text-gray-500';
                 let slotTitle = `${escapeHtml(p.nama)} - Belum Hadir (Bil #${p.bil})`;
+                let rsvpBorder = '';
+
+                // Highlight kerusi jika peserta sudah RSVP (tapi belum hadir fizikal)
+                if (p.attendance_status !== 'HADIR' && p.attendance_status !== 'TIDAK HADIR' && p.rsvp_status && p.rsvp_status !== 'BELUM SAH') {
+                    rsvpBorder = 'ring-2 ring-cyan-400 ring-offset-1';
+                    slotColor = 'bg-cyan-50 border-cyan-400 text-cyan-700';
+                }
 
                 if (p.attendance_status === 'HADIR') {
                     if (p.attendance_type === 'WAKIL') {
@@ -446,13 +490,15 @@ function renderTableGrid() {
                         slotColor = 'bg-emerald-500 text-white border-emerald-600';
                         slotTitle = `${escapeHtml(p.nama)} - Hadir`;
                     }
+                    rsvpBorder = ''; // Padam ring RSVP bila dah hadir
                 } else if (p.attendance_status === 'TIDAK HADIR') {
                     slotColor = 'bg-rose-500 text-white border-rose-600';
                     slotTitle = `${escapeHtml(p.nama)} - Tidak Hadir`;
+                    rsvpBorder = ''; // Padam ring RSVP
                 }
 
                 slotsHtml += `
-                    <div title="${slotTitle}" class="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold border ${slotColor} shadow-xs relative">
+                    <div title="${slotTitle}" class="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold border ${slotColor} ${rsvpBorder} shadow-xs relative">
                         ${i + 1}
                         ${p.totalAwards > 1 ? '<span class="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full border border-white"></span>' : ''}
                     </div>
@@ -533,13 +579,11 @@ function openDetailModal(tableKey) {
     modalTableName.textContent = tableKey;
     if (modalTableStats) {
         modalTableStats.innerHTML = `
-            <div class="flex flex-wrap gap-2 text-xs">
-                <span class="px-2.5 py-1 rounded bg-blue-50 text-blue-700 font-bold">Kerusi Fizikal: ${totalSeated} Orang</span>
-                <span class="px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 font-bold">Hadir Sendiri: ${hadirSendiri}</span>
-                <span class="px-2.5 py-1 rounded bg-purple-50 text-purple-700 font-bold">Wakil: ${wakil}</span>
-                <span class="px-2.5 py-1 rounded bg-rose-50 text-rose-700 font-bold">Tidak Hadir: ${tidakHadir}</span>
-                <span class="px-2.5 py-1 rounded bg-amber-50 text-amber-700 font-bold">Belum Hadir: ${belumHadir}</span>
-            </div>
+            <span class="px-2.5 py-1 rounded bg-blue-50 text-blue-700 font-bold">Kerusi Fizikal: ${totalSeated} Orang</span>
+            <span class="px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 font-bold">Hadir Sendiri: ${hadirSendiri}</span>
+            <span class="px-2.5 py-1 rounded bg-purple-50 text-purple-700 font-bold">Wakil: ${wakil}</span>
+            <span class="px-2.5 py-1 rounded bg-rose-50 text-rose-700 font-bold">Tidak Hadir: ${tidakHadir}</span>
+            <span class="px-2.5 py-1 rounded bg-amber-50 text-amber-700 font-bold">Belum Hadir: ${belumHadir}</span>
         `;
     }
 
@@ -573,6 +617,12 @@ function openDetailModal(tableKey) {
             } else {
                 statusBadge = '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-100 text-amber-800">Belum Hadir</span>';
             }
+            
+            // Tambah penunjuk RSVP jika ada
+            let rsvpLabel = '';
+            if (p.rsvp_status && p.rsvp_status !== 'BELUM SAH') {
+                rsvpLabel = `<div class="text-[10px] mt-1 font-bold px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-800 border border-cyan-200 inline-block w-max shadow-sm">RSVP: ${escapeHtml(p.rsvp_status)}</div>`;
+            }
 
             const isSelesai = !!p.naik_pentas_status;
             let pentasBadge = `
@@ -600,23 +650,24 @@ function openDetailModal(tableKey) {
 
             rowsHtml += `
                 <tr class="hover:bg-gray-50 transition-colors border-b border-gray-100">
-                    <td class="px-3 py-3 text-center text-xs font-mono font-bold text-gray-500 w-12">
+                    <td class="px-3 py-3 text-center text-xs font-mono font-bold text-gray-500 w-12 align-top">
                         ${idx + 1}
                     </td>
-                    <td class="px-3 py-3 text-center text-xs font-bold text-blue-700 w-20">
-                        <span class="px-2 py-1 bg-blue-100 rounded text-blue-900">#${escapeHtml(p.bil)}</span>
+                    <td class="px-3 py-3 text-center text-xs font-bold text-blue-700 w-20 align-top">
+                        <span class="px-2 py-1 bg-blue-100 rounded text-blue-900 block w-max mx-auto">#${escapeHtml(p.bil)}</span>
                     </td>
-                    <td class="px-4 py-3 text-sm">
+                    <td class="px-4 py-3 text-sm align-top">
                         <div class="font-bold text-gray-900">${escapeHtml(p.nama)}</div>
                         <div class="text-xs text-gray-600">${escapeHtml(p.sekolah)}</div>
-                        <div class="text-[11px] text-gray-400">${escapeHtml(p.kategori || '')}</div>
+                        <div class="text-[11px] text-gray-400 mb-1">${escapeHtml(p.kategori || '')}</div>
                         ${multiNotice}
                     </td>
-                    <td class="px-4 py-3 text-sm whitespace-nowrap">
+                    <td class="px-4 py-3 text-sm whitespace-nowrap align-top">
                         <div>${statusBadge}</div>
                         ${attendanceDetails}
+                        ${rsvpLabel}
                     </td>
-                    <td class="px-3 py-3 text-center text-xs">
+                    <td class="px-3 py-3 text-center text-xs align-top">
                         <div class="flex flex-col items-center">
                             ${pentasBadge}
                         </div>

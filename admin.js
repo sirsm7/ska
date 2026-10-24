@@ -4,6 +4,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let allRecipients = [];
 let personProfilesMap = new Map();
+let currentRole = null; 
 
 const loginScreen = document.getElementById('loginScreen');
 const mainContent = document.getElementById('mainContent');
@@ -11,6 +12,9 @@ const passwordInput = document.getElementById('passwordInput');
 const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const loginError = document.getElementById('loginError');
+
+const superAdminControls = document.getElementById('superAdminControls');
+const roleIndicator = document.getElementById('roleIndicator');
 
 const msgModal = document.getElementById('msgModal');
 const msgTitle = document.getElementById('msgTitle');
@@ -33,6 +37,7 @@ const wakilList = document.getElementById('wakilList');
 const wakilEmpty = document.getElementById('wakilEmpty');
 
 const statTotal = document.getElementById('statTotal');
+const statRsvp = document.getElementById('statRsvp');
 const statHadir = document.getElementById('statHadir');
 const statWakil = document.getElementById('statWakil');
 const statTidakHadir = document.getElementById('statTidakHadir');
@@ -41,11 +46,33 @@ const statBelum = document.getElementById('statBelum');
 let resetTargetRecipient = null;
 
 function checkSession() {
-    if (localStorage.getItem('isAdminLoggedIn') === 'true') {
+    const savedRole = localStorage.getItem('adminRole');
+    
+    if (savedRole === 'SUPERADMIN' || savedRole === 'PENGURUS') {
+        currentRole = savedRole;
+        
         if (loginScreen) loginScreen.classList.add('hidden');
         if (mainContent) mainContent.classList.remove('hidden');
+        
+        if (currentRole === 'PENGURUS') {
+            if (superAdminControls) superAdminControls.classList.add('hidden');
+            if (roleIndicator) {
+                roleIndicator.classList.remove('hidden');
+                roleIndicator.textContent = 'PENGURUS PESERTA';
+            }
+        } else {
+            if (superAdminControls) superAdminControls.classList.remove('hidden');
+            if (roleIndicator) {
+                roleIndicator.classList.remove('hidden');
+                roleIndicator.textContent = 'SUPER ADMIN';
+                roleIndicator.classList.replace('bg-blue-800', 'bg-red-700');
+                roleIndicator.classList.replace('border-blue-400', 'border-red-400');
+            }
+        }
+        
         fetchData();
     } else {
+        currentRole = null;
         if (loginScreen) loginScreen.classList.remove('hidden');
         if (mainContent) mainContent.classList.add('hidden');
         if (passwordInput) passwordInput.value = '';
@@ -66,8 +93,14 @@ if (passwordInput) {
 }
 
 function handleLogin() {
-    if (passwordInput.value === 'ppdag@12345') {
-        localStorage.setItem('isAdminLoggedIn', 'true');
+    const pwd = passwordInput.value;
+    
+    if (pwd === 'ppdag@12345') {
+        localStorage.setItem('adminRole', 'SUPERADMIN');
+        loginError.classList.add('hidden');
+        checkSession();
+    } else if (pwd === 'jpnmel2026') {
+        localStorage.setItem('adminRole', 'PENGURUS');
         loginError.classList.add('hidden');
         checkSession();
     } else {
@@ -77,7 +110,7 @@ function handleLogin() {
 
 if (logoutBtn) {
     logoutBtn.addEventListener('click', function() {
-        localStorage.removeItem('isAdminLoggedIn');
+        localStorage.removeItem('adminRole');
         checkSession();
     });
 }
@@ -95,6 +128,7 @@ function closeMsgModal() {
 }
 
 function confirmClearData() {
+    if (currentRole !== 'SUPERADMIN') return;
     confirmModal.classList.remove('hidden');
 }
 
@@ -103,6 +137,7 @@ function closeConfirmModal() {
 }
 
 function confirmResetAll() {
+    if (currentRole !== 'SUPERADMIN') return;
     confirmResetAllModal.classList.remove('hidden');
 }
 
@@ -139,6 +174,10 @@ function buildProfiles() {
 }
 
 function confirmReset(id, name, sekolah) {
+    if (currentRole !== 'SUPERADMIN') {
+        showMsg('Akses Ditolak', 'Hanya Super Admin dibenarkan menetapkan semula (reset) status kehadiran individu.');
+        return;
+    }
     resetTargetId.value = id;
     resetTargetName.textContent = name;
     resetTargetRecipient = { id, name, sekolah };
@@ -153,6 +192,8 @@ function closeResetModal() {
 }
 
 async function executeResetAll() {
+    if (currentRole !== 'SUPERADMIN') return;
+    
     closeConfirmResetAllModal();
     showProcess('Melaksanakan reset pukal...');
     try {
@@ -180,7 +221,7 @@ async function executeResetAll() {
 }
 
 async function executeResetData() {
-    if (!resetTargetRecipient) return;
+    if (currentRole !== 'SUPERADMIN' || !resetTargetRecipient) return;
     const { name, sekolah } = resetTargetRecipient;
     btnConfirmReset.innerHTML = 'Memproses...';
     btnConfirmReset.disabled = true;
@@ -226,7 +267,7 @@ function formatTime(dateString) {
 }
 
 async function fetchData() {
-    if (localStorage.getItem('isAdminLoggedIn') !== 'true') return;
+    if (!currentRole) return;
 
     if (reportTableBody) reportTableBody.innerHTML = '';
     if (tableLoading) tableLoading.classList.remove('hidden');
@@ -257,8 +298,13 @@ function updateDashboard() {
     let wakil = 0;
     let tidakHadir = 0;
     let belum = 0;
+    let rsvpCount = 0;
 
     allRecipients.forEach(r => {
+        if (r.rsvp_status && r.rsvp_status !== 'BELUM SAH') {
+            rsvpCount++;
+        }
+        
         if (r.attendance_status === 'HADIR') {
             if (r.attendance_type === 'WAKIL') wakil++;
             else hadir++;
@@ -270,6 +316,7 @@ function updateDashboard() {
     });
 
     if (statTotal) statTotal.textContent = total;
+    if (statRsvp) statRsvp.textContent = rsvpCount;
     if (statHadir) statHadir.textContent = hadir;
     if (statWakil) statWakil.textContent = wakil;
     if (statTidakHadir) statTidakHadir.textContent = tidakHadir;
@@ -355,6 +402,7 @@ function renderTables() {
         let isModified = false;
         
         const isHadir = row.attendance_status === 'HADIR';
+        const hasRsvp = row.rsvp_status && row.rsvp_status !== 'BELUM SAH';
         
         const pKey = getPersonKey(row.nama, row.sekolah);
         const personRecords = personProfilesMap.get(pKey) || [row];
@@ -372,7 +420,6 @@ function renderTables() {
             const nextRecord = personRecords[currentIndex + 1];
             
             if (nextRecord) {
-                // Ada anugerah seterusnya
                 const rawNextTable = nextRecord.no_meja ? nextRecord.no_meja : '-';
                 const nextTableFormatted = (rawNextTable !== '-' && !rawNextTable.toString().toUpperCase().startsWith('MEJA'))
                     ? 'MEJA ' + rawNextTable : rawNextTable;
@@ -390,7 +437,6 @@ function renderTables() {
                     </div>
                 `;
             } else {
-                // Ini anugerah terakhir dia
                 tableDisplayHtml = `
                     <div class="mt-1.5 flex flex-col gap-1.5 p-2 bg-emerald-50 border border-emerald-300 rounded shadow-sm">
                         <div class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-gray-800">
@@ -428,10 +474,16 @@ function renderTables() {
             statusBadge = `<span class="px-2 py-1 inline-flex text-[11px] md:text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Belum Hadir</span>`;
         }
 
+        let rsvpInfo = '';
+        if(hasRsvp) {
+            rsvpInfo = `<div class="mt-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold rsvp-badge shadow-sm">RSVP: ${escapeHtml(row.rsvp_status)}</div>`;
+        }
+
         const safeNama = row.nama ? row.nama.replace(/'/g, "\\'") : '';
         const safeSekolah = row.sekolah ? row.sekolah.replace(/'/g, "\\'") : '';
 
-        const resetBtn = isModified ? 
+        // Butang reset hanya ditunjukkan jika pengguna adalah superadmin
+        const resetBtn = (isModified && currentRole === 'SUPERADMIN') ? 
             `<button onclick="confirmReset('${row.id}', '${safeNama}', '${safeSekolah}')" class="mt-2 text-[10px] md:text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 border border-gray-300 py-1 px-2 rounded transition-colors inline-flex items-center w-max">
                 <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 Reset Kehadiran
@@ -476,7 +528,7 @@ function renderTables() {
                     </div>
                     <div class="text-[11px] text-gray-700 leading-tight mb-1">${escapeHtml(row.sekolah)}</div>
                     ${tableDisplayHtml}
-                    
+                    ${rsvpInfo}
                     <div class="bg-gray-50 p-2 rounded border border-gray-100 mt-2">
                         <div class="flex items-center justify-between">
                             <div>${statusBadge}</div>
@@ -499,6 +551,7 @@ function renderTables() {
                     <div class="text-sm text-gray-700">${escapeHtml(row.sekolah)}</div>
                     <div class="text-xs text-gray-500">${escapeHtml(row.kategori || '')}</div>
                     ${tableDisplayHtml}
+                    ${rsvpInfo}
                 </td>
                 <td class="hidden md:table-cell px-4 py-4 align-top">
                     <div>${statusBadge}</div>
@@ -552,6 +605,7 @@ function renderTables() {
 }
 
 function eksportDataCSV() {
+    if (currentRole !== 'SUPERADMIN') return;
     if (!allRecipients || allRecipients.length === 0) {
         showMsg('Maklumat', 'Tiada data untuk dimuat turun.');
         return;
@@ -585,6 +639,7 @@ function eksportDataCSV() {
 const csvFileInput = document.getElementById('csvFileInput');
 if (csvFileInput) {
     csvFileInput.addEventListener('change', function(e) {
+        if (currentRole !== 'SUPERADMIN') return;
         const file = e.target.files[0];
         if (!file) return;
 
@@ -619,6 +674,10 @@ if (csvFileInput) {
                         const pentasStr = getVal(['NAIK_PENTAS_STATUS', 'STATUS PENTAS']);
                         const naikPentas = (pentasStr === 'true' || pentasStr === 'TRUE' || pentasStr === '1') ? true : false;
                         
+                        const rsvpStatus = getVal(['RSVP_STATUS', 'STATUS RSVP']) || 'BELUM SAH';
+                        const rsvpTimeStr = getVal(['RSVP_TIME', 'MASA RSVP']);
+                        const rsvpTime = rsvpTimeStr && rsvpTimeStr !== 'null' && rsvpTimeStr !== '' ? rsvpTimeStr : null;
+
                         const mejaVal = getVal(['NO_MEJA', 'NO MEJA', 'MEJA', 'TABLE']);
 
                         const record = {
@@ -631,7 +690,9 @@ if (csvFileInput) {
                             attendance_time: attTime,
                             attendance_type: (attType && attType !== 'null' && attType !== '') ? attType : null,
                             representative_name: (repName && repName !== 'null' && repName !== '') ? repName : null,
-                            naik_pentas_status: naikPentas
+                            naik_pentas_status: naikPentas,
+                            rsvp_status: rsvpStatus,
+                            rsvp_time: rsvpTime
                         };
                         
                         if (idVal && idVal !== '') {
@@ -676,6 +737,7 @@ if (csvFileInput) {
 }
 
 async function executeClearData() {
+    if (currentRole !== 'SUPERADMIN') return;
     closeConfirmModal();
     showProcess('Memadam semua rekod...');
     try {

@@ -104,3 +104,21 @@ input[type="search"]::-webkit-search-results-decoration {
     border-left: 4px solid #94a3b8;
     opacity: 0.95;
 }
+
+/* Kod Warna Visual RSVP / Pengesahan Kehadiran Awal */
+.rsvp-confirmed-border {
+    border-left: 4px solid #06b6d4 !important; /* Cyan 500 */
+}
+.rsvp-confirmed-bg {
+    background-color: #ecfeff !important; /* Cyan 50 */
+}
+.rsvp-badge {
+    background-color: #cffafe; /* Cyan 100 */
+    color: #164e63; /* Cyan 900 */
+    border: 1px solid #67e8f9; /* Cyan 300 */
+}
+.rsvp-pending-badge {
+    background-color: #f3f4f6; /* Gray 100 */
+    color: #4b5563; /* Gray 600 */
+    border: 1px solid #d1d5db; /* Gray 300 */
+}
