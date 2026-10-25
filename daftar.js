@@ -6,7 +6,14 @@ let currentTab = 'belum';
 let allData = []; 
 let personProfilesMap = new Map();
 
-// DOM Elements
+// DOM Elements - Login & Main App
+const loginScreen = document.getElementById('loginScreen');
+const mainContent = document.getElementById('mainContent');
+const passwordInput = document.getElementById('passwordInput');
+const loginBtn = document.getElementById('loginBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const loginError = document.getElementById('loginError');
+
 const searchInput = document.getElementById('searchInput');
 const resetSearchBtn = document.getElementById('resetSearchBtn');
 const filterKategori = document.getElementById('filterKategori');
@@ -38,8 +45,56 @@ const saveWakilBtn = document.getElementById('saveWakilBtn');
 let typingTimer;
 const doneTypingInterval = 300;
 
-document.addEventListener('DOMContentLoaded', fetchAllData);
+// Logik Pengesahan (Authentication)
+function checkSession() {
+    const isLogged = localStorage.getItem('pendaftarLogged');
+    
+    if (isLogged === 'true') {
+        if (loginScreen) loginScreen.classList.add('hidden');
+        if (mainContent) mainContent.classList.remove('hidden');
+        fetchAllData(); // Fetch data hanya selepas berjaya log masuk
+    } else {
+        if (loginScreen) loginScreen.classList.remove('hidden');
+        if (mainContent) mainContent.classList.add('hidden');
+        if (passwordInput) passwordInput.value = '';
+    }
+}
 
+document.addEventListener('DOMContentLoaded', checkSession);
+
+window.addEventListener('pageshow', function (event) {
+    if (event.persisted) {
+        checkSession();
+    }
+});
+
+if (loginBtn) loginBtn.addEventListener('click', handleLogin);
+if (passwordInput) {
+    passwordInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') handleLogin();
+    });
+}
+
+function handleLogin() {
+    const pwd = passwordInput.value;
+    
+    if (pwd === 'daftarmajlis') {
+        localStorage.setItem('pendaftarLogged', 'true');
+        loginError.classList.add('hidden');
+        checkSession();
+    } else {
+        loginError.classList.remove('hidden');
+    }
+}
+
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', function() {
+        localStorage.removeItem('pendaftarLogged');
+        checkSession();
+    });
+}
+
+// Logik Antaramuka Pendaftar Utama
 if (searchInput) {
     searchInput.addEventListener('input', function (e) {
         e.target.value = e.target.value.toUpperCase();
