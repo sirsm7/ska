@@ -5,6 +5,8 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let allRecipients = [];
 let personProfilesMap = new Map();
 let currentRole = null; 
+let searchTimer;
+const doneTypingInterval = 400;
 
 const loginScreen = document.getElementById('loginScreen');
 const mainContent = document.getElementById('mainContent');
@@ -31,6 +33,8 @@ const processText = document.getElementById('processText');
 const filterStatus = document.getElementById('filterStatus');
 const filterPentasStatus = document.getElementById('filterPentasStatus');
 const filterKategori = document.getElementById('filterKategori');
+const adminSearchInput = document.getElementById('adminSearchInput');
+const adminResetSearchBtn = document.getElementById('adminResetSearchBtn');
 const tableLoading = document.getElementById('tableLoading');
 const reportTableBody = document.getElementById('reportTableBody');
 const wakilList = document.getElementById('wakilList');
@@ -116,6 +120,43 @@ if (logoutBtn) {
 }
 
 document.addEventListener('DOMContentLoaded', checkSession);
+
+// Listeners untuk carian dan penapis
+if (adminSearchInput) {
+    adminSearchInput.addEventListener('input', function(e) {
+        e.target.value = e.target.value.toUpperCase();
+        if (e.target.value.trim().length > 0) {
+            adminResetSearchBtn.classList.remove('hidden');
+        } else {
+            adminResetSearchBtn.classList.add('hidden');
+        }
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(renderTables, doneTypingInterval);
+    });
+
+    adminSearchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            clearAdminSearch();
+        }
+    });
+}
+
+if (adminResetSearchBtn) {
+    adminResetSearchBtn.addEventListener('click', clearAdminSearch);
+}
+
+if (filterStatus) filterStatus.addEventListener('change', renderTables);
+if (filterPentasStatus) filterPentasStatus.addEventListener('change', renderTables);
+if (filterKategori) filterKategori.addEventListener('change', renderTables);
+
+function clearAdminSearch() {
+    if (adminSearchInput) {
+        adminSearchInput.value = '';
+        adminSearchInput.focus();
+    }
+    if (adminResetSearchBtn) adminResetSearchBtn.classList.add('hidden');
+    renderTables();
+}
 
 function showMsg(title, msg) {
     msgTitle.textContent = title;
@@ -313,9 +354,7 @@ async function fetchData() {
         if (error) throw error;
         allRecipients = data || [];
         
-        // Panggil fungsi bina dropdown kategori dinamik
         populateKategoriDropdown(allRecipients);
-        
         buildProfiles();
         updateDashboard();
         renderTables();
@@ -357,10 +396,6 @@ function updateDashboard() {
     if (statTidakHadir) statTidakHadir.textContent = tidakHadir;
     if (statBelum) statBelum.textContent = belum;
 }
-
-if (filterStatus) filterStatus.addEventListener('change', renderTables);
-if (filterPentasStatus) filterPentasStatus.addEventListener('change', renderTables);
-if (filterKategori) filterKategori.addEventListener('change', renderTables);
 
 async function toggleNaikPentas(id, currentStatus) {
     const newStatus = !currentStatus;
@@ -413,6 +448,7 @@ function renderTables() {
     const filterKehadiran = filterStatus ? filterStatus.value : 'ALL';
     const filterPentas = filterPentasStatus ? filterPentasStatus.value : 'ALL';
     const filterKat = filterKategori ? filterKategori.value : 'ALL';
+    const searchQuery = adminSearchInput ? adminSearchInput.value.trim().toUpperCase() : '';
     
     let filteredData = allRecipients;
     
@@ -428,6 +464,25 @@ function renderTables() {
         filteredData = filteredData.filter(r => !r.naik_pentas_status);
     } else if (filterPentas === 'SUDAH_NAIK') {
         filteredData = filteredData.filter(r => r.naik_pentas_status);
+    }
+    
+    // Applikasi logik carian teks
+    if (searchQuery) {
+        const qNum = parseInt(searchQuery);
+        const queryCleanTable = searchQuery.replace(/^MEJA\s*/i, '').trim();
+
+        filteredData = filteredData.filter(r => {
+            const nameMatch = r.nama && r.nama.toUpperCase().includes(searchQuery);
+            const schoolMatch = r.sekolah && r.sekolah.toUpperCase().includes(searchQuery);
+            const bilMatch = !isNaN(qNum) && r.bil === qNum;
+            const tableStr = r.no_meja ? r.no_meja.toString().toUpperCase() : '';
+            const tableMatch = tableStr !== '' && (
+                tableStr.includes(searchQuery) ||
+                (queryCleanTable !== '' && tableStr === queryCleanTable) ||
+                (queryCleanTable !== '' && tableStr === `MEJA ${queryCleanTable}`)
+            );
+            return nameMatch || schoolMatch || bilMatch || tableMatch;
+        });
     }
 
     let html = '';
@@ -615,11 +670,16 @@ function renderTables() {
     });
     
     if (html === '') {
-        html = `<tr><td colspan="4" class="px-6 py-8 text-center text-gray-500 text-sm">Tiada rekod ditemui untuk tapisan ini.</td></tr>`;
+        let msg = 'Tiada rekod ditemui untuk tapisan ini.';
+        if (searchQuery) {
+            msg = `Tiada padanan carian untuk "${escapeHtml(searchQuery)}".`;
+        }
+        html = `<tr><td colspan="4" class="px-6 py-8 text-center text-gray-500 text-sm">${msg}</td></tr>`;
     }
     reportTableBody.innerHTML = html;
 
     let wakilHtml = '';
+    // Untuk logik wakil, kita kekalkan ia berdasarkan senarai filteredData yang telah ditapis oleh carian/filter
     const wakilData = filteredData.filter(r => r.attendance_status === 'HADIR' && r.attendance_type === 'WAKIL');
     
     wakilData.forEach(row => {
@@ -807,3 +867,4 @@ window.executeClearData = executeClearData;
 window.toggleNaikPentas = toggleNaikPentas;
 window.eksportDataCSV = eksportDataCSV;
 window.closeMsgModal = closeMsgModal;
+window.clearAdminSearch = clearAdminSearch;
