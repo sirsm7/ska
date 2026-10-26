@@ -270,6 +270,33 @@ function formatTime(dateString) {
     return new Date(dateString).toLocaleTimeString('en-MY', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
+// Fungsi baharu untuk membina dropdown kategori secara dinamik
+function populateKategoriDropdown(data) {
+    if (!filterKategori) return;
+    
+    const currentSelection = filterKategori.value;
+    
+    // Ekstrak kategori unik, abaikan nilai kosong/null
+    const uniqueKategori = [...new Set(data.map(item => item.kategori).filter(k => k && k.trim() !== ''))];
+    
+    // Sort kategori mengikut susunan abjad
+    uniqueKategori.sort((a, b) => a.localeCompare(b));
+    
+    // Bina pilihan dropdown
+    let optionsHtml = '<option value="ALL">Semua Kategori</option>';
+    uniqueKategori.forEach(kat => {
+        const safeKat = escapeHtml(kat);
+        optionsHtml += `<option value="${safeKat}">Kategori: ${safeKat}</option>`;
+    });
+    
+    filterKategori.innerHTML = optionsHtml;
+    
+    // Kekalkan pilihan sebelumnya jika ada dan masih wujud dalam senarai baharu
+    if (uniqueKategori.includes(currentSelection) || currentSelection === 'ALL') {
+        filterKategori.value = currentSelection;
+    }
+}
+
 async function fetchData() {
     if (!currentRole) return;
 
@@ -285,6 +312,10 @@ async function fetchData() {
 
         if (error) throw error;
         allRecipients = data || [];
+        
+        // Panggil fungsi bina dropdown kategori dinamik
+        populateKategoriDropdown(allRecipients);
+        
         buildProfiles();
         updateDashboard();
         renderTables();
@@ -386,7 +417,7 @@ function renderTables() {
     let filteredData = allRecipients;
     
     if (filterKat !== 'ALL') {
-        filteredData = filteredData.filter(r => r.kategori && r.kategori.toUpperCase().includes(filterKat));
+        filteredData = filteredData.filter(r => r.kategori && r.kategori === filterKat);
     }
 
     if (filterKehadiran !== 'ALL') {

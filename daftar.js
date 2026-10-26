@@ -239,6 +239,33 @@ function buildPersonProfiles(dataset) {
     return profiles;
 }
 
+// Fungsi baharu untuk membina dropdown kategori secara dinamik
+function populateKategoriDropdown(data) {
+    if (!filterKategori) return;
+    
+    const currentSelection = filterKategori.value;
+    
+    // Ekstrak kategori unik, abaikan nilai kosong/null
+    const uniqueKategori = [...new Set(data.map(item => item.kategori).filter(k => k && k.trim() !== ''))];
+    
+    // Sort kategori mengikut susunan abjad
+    uniqueKategori.sort((a, b) => a.localeCompare(b));
+    
+    // Bina pilihan dropdown
+    let optionsHtml = '<option value="ALL">Semua Kategori</option>';
+    uniqueKategori.forEach(kat => {
+        const safeKat = escapeHtml(kat);
+        optionsHtml += `<option value="${safeKat}">Kategori: ${safeKat}</option>`;
+    });
+    
+    filterKategori.innerHTML = optionsHtml;
+    
+    // Kekalkan pilihan sebelumnya jika ada dan masih wujud dalam senarai baharu
+    if (uniqueKategori.includes(currentSelection) || currentSelection === 'ALL') {
+        filterKategori.value = currentSelection;
+    }
+}
+
 async function fetchAllData() {
     if (loadingIndicator) loadingIndicator.classList.remove('hidden');
     if (resultsContainer) resultsContainer.innerHTML = '';
@@ -253,6 +280,9 @@ async function fetchAllData() {
         if (error) throw error;
         allData = data || [];
         
+        // Panggil fungsi bina dropdown kategori dinamik
+        populateKategoriDropdown(allData);
+
         personProfilesMap = buildPersonProfiles(allData);
         processDataView();
 
@@ -306,7 +336,7 @@ function processDataView() {
     let currentDataSet = allData;
 
     if (selectedKat !== 'ALL') {
-        currentDataSet = currentDataSet.filter(r => r.kategori && r.kategori.toUpperCase().includes(selectedKat));
+        currentDataSet = currentDataSet.filter(r => r.kategori && r.kategori === selectedKat);
     }
     
     updateCounts(currentDataSet);
@@ -721,7 +751,7 @@ async function confirmPukalTidakHadir(sekolah) {
     
     let pendingStudents = allData.filter(s => s.sekolah === sekolah && s.attendance_status === 'BELUM HADIR');
     if (selectedKat !== 'ALL') {
-        pendingStudents = pendingStudents.filter(s => s.kategori && s.kategori.toUpperCase().includes(selectedKat));
+        pendingStudents = pendingStudents.filter(s => s.kategori && s.kategori === selectedKat);
     }
     
     const idsToUpdate = pendingStudents.map(s => s.id);
@@ -791,7 +821,7 @@ function openWakilModalPukal(sekolah) {
     const selectedKat = filterKategori ? filterKategori.value : 'ALL';
     let pendingStudents = allData.filter(s => s.sekolah === sekolah && s.attendance_status === 'BELUM HADIR');
     if (selectedKat !== 'ALL') {
-        pendingStudents = pendingStudents.filter(s => s.kategori && s.kategori.toUpperCase().includes(selectedKat));
+        pendingStudents = pendingStudents.filter(s => s.kategori && s.kategori === selectedKat);
     }
     
     const hasTidakHadirRsvp = pendingStudents.some(s => s.rsvp_status === 'TIDAK HADIR');
@@ -868,7 +898,7 @@ async function saveWakil() {
             let pendingStudents = allData.filter(s => s.sekolah === sekolahToUpdate && s.attendance_status === 'BELUM HADIR');
             
             if (selectedKat !== 'ALL') {
-                pendingStudents = pendingStudents.filter(s => s.kategori && s.kategori.toUpperCase().includes(selectedKat));
+                pendingStudents = pendingStudents.filter(s => s.kategori && s.kategori === selectedKat);
             }
             
             const idsToUpdate = pendingStudents.map(s => s.id);
