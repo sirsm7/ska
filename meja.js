@@ -476,10 +476,17 @@ function renderTableGrid() {
                 let slotTitle = `${escapeHtml(p.nama)} - Belum Hadir (Bil #${p.bil})`;
                 let rsvpBorder = '';
 
-                // Highlight kerusi jika peserta sudah RSVP (tapi belum hadir fizikal)
+                // Logik penonjolan RSVP dalam slot kerusi
                 if (p.attendance_status !== 'HADIR' && p.attendance_status !== 'TIDAK HADIR' && p.rsvp_status && p.rsvp_status !== 'BELUM SAH') {
-                    rsvpBorder = 'ring-2 ring-cyan-400 ring-offset-1';
-                    slotColor = 'bg-cyan-50 border-cyan-400 text-cyan-700';
+                    if (p.rsvp_status === 'TIDAK HADIR') {
+                        // Kerusi ditandakan merah/kelabu pudar dengan sempadan silang secara bayangan
+                        rsvpBorder = 'ring-2 ring-red-400 ring-offset-1';
+                        slotColor = 'bg-red-50 border-red-400 text-red-700 opacity-80';
+                        slotTitle = `${escapeHtml(p.nama)} - RSVP: TIDAK HADIR`;
+                    } else {
+                        rsvpBorder = 'ring-2 ring-cyan-400 ring-offset-1';
+                        slotColor = 'bg-cyan-50 border-cyan-400 text-cyan-700';
+                    }
                 }
 
                 if (p.attendance_status === 'HADIR') {
@@ -498,7 +505,7 @@ function renderTableGrid() {
                 }
 
                 slotsHtml += `
-                    <div title="${slotTitle}" class="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold border ${slotColor} ${rsvpBorder} shadow-xs relative">
+                    <div title="${slotTitle}" class="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold border ${slotColor} ${rsvpBorder} shadow-xs relative transition-colors">
                         ${i + 1}
                         ${p.totalAwards > 1 ? '<span class="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full border border-white"></span>' : ''}
                     </div>
@@ -618,10 +625,14 @@ function openDetailModal(tableKey) {
                 statusBadge = '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-100 text-amber-800">Belum Hadir</span>';
             }
             
-            // Tambah penunjuk RSVP jika ada
+            // Tambah penunjuk RSVP jika ada & highlight dalam modal
             let rsvpLabel = '';
             if (p.rsvp_status && p.rsvp_status !== 'BELUM SAH') {
-                rsvpLabel = `<div class="text-[10px] mt-1 font-bold px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-800 border border-cyan-200 inline-block w-max shadow-sm">RSVP: ${escapeHtml(p.rsvp_status)}</div>`;
+                if (p.rsvp_status === 'TIDAK HADIR' && p.attendance_status === 'BELUM HADIR') {
+                    rsvpLabel = `<div class="text-[10px] mt-1 font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-800 border border-red-300 inline-block w-max shadow-sm">RSVP: TIDAK HADIR</div>`;
+                } else {
+                    rsvpLabel = `<div class="text-[10px] mt-1 font-bold px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-800 border border-cyan-200 inline-block w-max shadow-sm">RSVP: ${escapeHtml(p.rsvp_status)}</div>`;
+                }
             }
 
             const isSelesai = !!p.naik_pentas_status;

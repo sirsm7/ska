@@ -478,9 +478,14 @@ function renderTables() {
             statusBadge = `<span class="px-2 py-1 inline-flex text-[11px] md:text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Belum Hadir</span>`;
         }
 
+        // Logik Penonjolan Lencana RSVP
         let rsvpInfo = '';
         if(hasRsvp) {
-            rsvpInfo = `<div class="mt-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold rsvp-badge shadow-sm">RSVP: ${escapeHtml(row.rsvp_status)}</div>`;
+            if (row.rsvp_status === 'TIDAK HADIR' && !isHadir) {
+                rsvpInfo = `<div class="mt-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-300 shadow-sm">RSVP: TIDAK HADIR</div>`;
+            } else {
+                rsvpInfo = `<div class="mt-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold rsvp-badge shadow-sm">RSVP: ${escapeHtml(row.rsvp_status)}</div>`;
+            }
         }
 
         const safeNama = row.nama ? row.nama.replace(/'/g, "\\'") : '';

@@ -433,17 +433,25 @@ function renderResults(recipients, query, category) {
                 ? (currentIndex === 0 ? 'award-card-first' : 'award-card-subsequent') 
                 : '';
 
-            // RSBP Visual Injection
+            // RSBP Visual Injection & Highlight TIDAK HADIR
             let rsvpStatus = row.rsvp_status || 'BELUM SAH';
             let rsvpCssClasses = '';
             let rsvpBadgeHtml = '';
 
-            // Only emphasize RSVP if they haven't physically attended yet, or always show it
-            if(rsvpStatus !== 'BELUM SAH') {
-                if(row.attendance_status === 'BELUM HADIR') {
-                    rsvpCssClasses = 'rsvp-confirmed-border rsvp-confirmed-bg';
+            if (rsvpStatus !== 'BELUM SAH') {
+                if (row.attendance_status === 'BELUM HADIR') {
+                    if (rsvpStatus === 'TIDAK HADIR') {
+                        rsvpCssClasses = 'border-l-4 border-red-500 bg-red-50'; // Penonjolan amaran
+                    } else {
+                        rsvpCssClasses = 'rsvp-confirmed-border rsvp-confirmed-bg';
+                    }
                 }
-                rsvpBadgeHtml = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold rsvp-badge ml-1 shadow-sm">RSVP: ${escapeHtml(rsvpStatus)}</span>`;
+                
+                if (rsvpStatus === 'TIDAK HADIR') {
+                    rsvpBadgeHtml = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 border border-red-300 ml-1 shadow-sm">RSVP: TIDAK HADIR</span>`;
+                } else {
+                    rsvpBadgeHtml = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold rsvp-badge ml-1 shadow-sm">RSVP: ${escapeHtml(rsvpStatus)}</span>`;
+                }
             }
 
             const safeNama = row.nama ? row.nama.replace(/'/g, "\\'") : '';
@@ -622,6 +630,12 @@ window.saveWakil = saveWakil;
 window.clearSearch = clearSearch;
 
 async function markHadir(name, sekolah) {
+    const targetRec = allData.find(r => r.nama === name && r.sekolah === sekolah);
+    if (targetRec && targetRec.rsvp_status === 'TIDAK HADIR') {
+        const confirmOverride = confirm(`AMARAN: ${name} telah membuat pengesahan awal (RSVP) TIDAK HADIR.\n\nAdakah anda pasti mahu MENGABAIKAN rsvp tersebut dan menanda mereka sebagai HADIR?`);
+        if (!confirmOverride) return;
+    }
+
     const currentTime = new Date().toISOString();
 
     let updated = false;
@@ -752,6 +766,12 @@ function resetRadioButtons() {
 }
 
 function openWakilModal(id, name, sekolah) {
+    const targetRec = allData.find(r => r.id === id);
+    if (targetRec && targetRec.rsvp_status === 'TIDAK HADIR') {
+        const confirmOverride = confirm(`AMARAN: ${name} telah membuat pengesahan awal (RSVP) TIDAK HADIR.\n\nAdakah anda pasti mahu MENGABAIKAN rsvp tersebut dan mendaftarkan wakil untuk mereka?`);
+        if (!confirmOverride) return;
+    }
+
     if (!modalMode || !modalRecipientId || !modalRecipientSekolah || !wakilModal) return;
     
     modalMode.value = 'INDIVIDU';
@@ -768,6 +788,18 @@ function openWakilModal(id, name, sekolah) {
 }
 
 function openWakilModalPukal(sekolah) {
+    const selectedKat = filterKategori ? filterKategori.value : 'ALL';
+    let pendingStudents = allData.filter(s => s.sekolah === sekolah && s.attendance_status === 'BELUM HADIR');
+    if (selectedKat !== 'ALL') {
+        pendingStudents = pendingStudents.filter(s => s.kategori && s.kategori.toUpperCase().includes(selectedKat));
+    }
+    
+    const hasTidakHadirRsvp = pendingStudents.some(s => s.rsvp_status === 'TIDAK HADIR');
+    if (hasTidakHadirRsvp) {
+        const confirmOverride = confirm(`AMARAN: Terdapat penerima dari ${sekolah} yang telah RSVP "TIDAK HADIR".\n\nAdakah anda pasti mahu menanda wakil secara pukal untuk semua yang belum hadir?`);
+        if (!confirmOverride) return;
+    }
+
     if (!modalMode || !modalRecipientSekolah || !wakilModal) return;
     
     modalMode.value = 'PUKAL';
