@@ -1,16 +1,1 @@
-/*
-  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-  X-Frame-Options: SAMEORIGIN
-  Permissions-Policy: geolocation=(), microphone=(), camera=()
-
-/admin.html
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://app.tech4ag.my; img-src 'self' data:; upgrade-insecure-requests;
-
-/index.html
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://app.tech4ag.my; img-src 'self' data:; upgrade-insecure-requests;
-
-/daftar.html
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://app.tech4ag.my; img-src 'self' data:; upgrade-insecure-requests;
-
-/meja.html
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://app.tech4ag.my; img-src 'self' data:; upgrade-insecure-requests;
+/*X-Frame-Options: SAMEORIGINX-Content-Type-Options: nosniffReferrer-Policy: strict-origin-when-cross-originStrict-Transport-Security: max-age=31536000; includeSubDomains; preloadPermissions-Policy: camera=(), microphone=(), geolocation=()Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://app.tech4ag.my https://ui-avatars.com; connect-src 'self' https://app.tech4ag.my wss://app.tech4ag.my; frame-ancestors 'self'; upgrade-insecure-requests;
