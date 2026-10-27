@@ -617,18 +617,27 @@ function renderTables() {
             </span>
         ` : '';
 
+        // UI Kad Penunjuk Bersepadu (Unified Badge Card) tanpa ruang bertindih (overlap)
+        const badgeColorClass = isNaikPentas ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-blue-100 text-blue-800 border-blue-300';
+        const badgeHeaderClass = isNaikPentas ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-100 border-slate-200';
+        
+        const unifiedBadge = `
+            <div class="flex flex-col rounded-md shadow-sm border ${badgeColorClass} overflow-hidden w-16 mx-auto mb-2 bg-white">
+                <div class="w-full ${badgeHeaderClass} px-1 py-1.5 text-center border-b">
+                    <span class="block text-[9px] font-bold text-slate-500 uppercase leading-none mb-0.5">Meja</span>
+                    <span class="block text-xs font-black text-slate-800 leading-none">${escapeHtml(currentAwardTableShort)}</span>
+                </div>
+                <div class="w-full px-1 py-1.5 text-center">
+                    <span class="block text-sm font-black leading-none">${escapeHtml(row.bil)}</span>
+                </div>
+            </div>
+        `;
+
         html += `
             <tr id="row-${row.id}" class="${rowClass} border-b border-gray-100">
                 
-                <td class="md:hidden px-2 py-4 align-top w-20 text-center border-r border-gray-100 bg-gray-50/50">
-                    <div class="flex flex-col items-center justify-center mb-3">
-                        <div class="text-[9px] font-bold text-gray-700 bg-gray-200 px-1.5 py-1 rounded-t-md border-b border-gray-300 w-full uppercase shadow-sm leading-tight text-center">
-                            Meja<br><span class="text-xs text-gray-900">${escapeHtml(currentAwardTableShort)}</span>
-                        </div>
-                        <div class="inline-flex h-9 w-9 ${isNaikPentas ? 'bg-green-200 border-green-400 text-green-800' : 'bg-blue-100 border-blue-300 text-blue-800'} bg-white rounded-full items-center justify-center border-2 text-sm font-black shadow-sm z-10 -mt-2">
-                            ${escapeHtml(row.bil)}
-                        </div>
-                    </div>
+                <td class="md:hidden px-2 py-4 align-top w-24 text-center border-r border-gray-100 bg-gray-50/50">
+                    ${unifiedBadge}
                     <div id="pentas-container-mb-${row.id}" class="flex flex-col items-center justify-center mt-2">
                         <input type="checkbox" 
                             id="pentas-check-mb-${row.id}" 
@@ -657,15 +666,8 @@ function renderTables() {
                     </div>
                 </td>
 
-                <td class="hidden md:table-cell px-4 py-4 whitespace-nowrap text-center align-middle">
-                    <div class="flex flex-col items-center justify-center">
-                        <div class="text-[10px] font-bold text-gray-700 bg-gray-200 px-2 py-1 rounded-t-md border-b border-gray-300 w-full uppercase shadow-sm leading-tight text-center">
-                            MEJA<br><span class="text-sm text-gray-900">${escapeHtml(currentAwardTableShort)}</span>
-                        </div>
-                        <div class="inline-flex h-10 w-10 ${isNaikPentas ? 'bg-green-200 border-green-400 text-green-800' : 'bg-blue-100 border-blue-300 text-blue-800'} bg-white rounded-full items-center justify-center border-2 text-sm font-black shadow-sm z-10 -mt-3">
-                            ${escapeHtml(row.bil)}
-                        </div>
-                    </div>
+                <td class="hidden md:table-cell px-4 py-4 whitespace-nowrap text-center align-top bg-gray-50/30">
+                    ${unifiedBadge}
                 </td>
                 
                 <td class="hidden md:table-cell px-6 py-4 align-middle">
