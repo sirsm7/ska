@@ -121,7 +121,6 @@ if (logoutBtn) {
 
 document.addEventListener('DOMContentLoaded', checkSession);
 
-// Listeners untuk carian dan penapis
 if (adminSearchInput) {
     adminSearchInput.addEventListener('input', function(e) {
         e.target.value = e.target.value.toUpperCase();
@@ -210,7 +209,6 @@ function buildProfiles() {
     });
 
     personProfilesMap.forEach(records => {
-        // NATURAL SORT: Meja dahulu, kemudian Bil (Memastikan anugerah meja terawal menjadi primary)
         records.sort((a, b) => {
             const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
             const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
@@ -320,19 +318,14 @@ function formatTime(dateString) {
     return new Date(dateString).toLocaleTimeString('en-MY', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
-// Fungsi baharu untuk membina dropdown kategori secara dinamik
 function populateKategoriDropdown(data) {
     if (!filterKategori) return;
     
     const currentSelection = filterKategori.value;
-    
-    // Ekstrak kategori unik, abaikan nilai kosong/null
     const uniqueKategori = [...new Set(data.map(item => item.kategori).filter(k => k && k.trim() !== ''))];
     
-    // Sort kategori mengikut susunan abjad
     uniqueKategori.sort((a, b) => a.localeCompare(b));
     
-    // Bina pilihan dropdown
     let optionsHtml = '<option value="ALL">Semua Kategori</option>';
     uniqueKategori.forEach(kat => {
         const safeKat = escapeHtml(kat);
@@ -341,7 +334,6 @@ function populateKategoriDropdown(data) {
     
     filterKategori.innerHTML = optionsHtml;
     
-    // Kekalkan pilihan sebelumnya jika ada dan masih wujud dalam senarai baharu
     if (uniqueKategori.includes(currentSelection) || currentSelection === 'ALL') {
         filterKategori.value = currentSelection;
     }
@@ -361,7 +353,6 @@ async function fetchData() {
         if (error) throw error;
         allRecipients = data || [];
         
-        // Pelaksanaan Natural Sort untuk 'no_meja' diikuti 'bil'
         allRecipients.sort((a, b) => {
             const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
             const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
@@ -487,7 +478,6 @@ function renderTables() {
         filteredData = filteredData.filter(r => r.naik_pentas_status);
     }
     
-    // Applikasi logik carian teks
     if (searchQuery) {
         const qNum = parseInt(searchQuery);
         const queryCleanTable = searchQuery.replace(/^MEJA\s*/i, '').trim();
@@ -585,7 +575,6 @@ function renderTables() {
             statusBadge = `<span class="px-2 py-1 inline-flex text-[11px] md:text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Belum Hadir</span>`;
         }
 
-        // Logik Penonjolan Lencana RSVP
         let rsvpInfo = '';
         if(hasRsvp) {
             if (row.rsvp_status === 'TIDAK HADIR' && !isHadir) {
@@ -598,7 +587,6 @@ function renderTables() {
         const safeNama = row.nama ? row.nama.replace(/'/g, "\\'") : '';
         const safeSekolah = row.sekolah ? row.sekolah.replace(/'/g, "\\'") : '';
 
-        // Butang reset hanya ditunjukkan jika pengguna adalah superadmin
         const resetBtn = (isModified && currentRole === 'SUPERADMIN') ? 
             `<button onclick="confirmReset('${row.id}', '${safeNama}', '${safeSekolah}')" class="mt-2 text-[10px] md:text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 border border-gray-300 py-1 px-2 rounded transition-colors inline-flex items-center w-max">
                 <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -700,7 +688,6 @@ function renderTables() {
     reportTableBody.innerHTML = html;
 
     let wakilHtml = '';
-    // Untuk logik wakil, kita kekalkan ia berdasarkan senarai filteredData yang telah ditapis oleh carian/filter
     const wakilData = filteredData.filter(r => r.attendance_status === 'HADIR' && r.attendance_type === 'WAKIL');
     
     wakilData.forEach(row => {
