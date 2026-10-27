@@ -347,12 +347,24 @@ async function fetchData() {
     try {
         const { data, error } = await supabaseClient
             .from('recipients')
-            .select('*')
-            .order('bil', { ascending: true })
-            .order('sekolah', { ascending: true });
+            .select('*');
 
         if (error) throw error;
         allRecipients = data || [];
+        
+        // Pelaksanaan Natural Sort untuk 'no_meja' diikuti 'bil'
+        allRecipients.sort((a, b) => {
+            const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            
+            const cmp = mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
+            
+            if (cmp !== 0) return cmp;
+            
+            const bilA = parseInt(a.bil) || 0;
+            const bilB = parseInt(b.bil) || 0;
+            return bilA - bilB;
+        });
         
         populateKategoriDropdown(allRecipients);
         buildProfiles();
