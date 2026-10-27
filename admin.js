@@ -512,47 +512,57 @@ function renderTables() {
         const awardIndex = currentIndex + 1;
         
         const rawCurrentTable = row.no_meja ? row.no_meja : '-';
-        const currentTableFormatted = (rawCurrentTable !== '-' && !rawCurrentTable.toString().toUpperCase().startsWith('MEJA'))
-            ? 'MEJA ' + rawCurrentTable : rawCurrentTable;
+        const currentAwardTableShort = rawCurrentTable.toString().toUpperCase().replace(/^MEJA\s*/, '');
 
         let tableDisplayHtml = '';
         
         if (totalAwards > 1) {
-            const nextRecord = personRecords[currentIndex + 1];
-            
-            if (nextRecord) {
-                const rawNextTable = nextRecord.no_meja ? nextRecord.no_meja : '-';
-                const nextTableFormatted = (rawNextTable !== '-' && !rawNextTable.toString().toUpperCase().startsWith('MEJA'))
-                    ? 'MEJA ' + rawNextTable : rawNextTable;
-                    
-                tableDisplayHtml = `
-                    <div class="mt-1.5 flex flex-col gap-1.5 p-2 bg-amber-50 border border-amber-300 rounded shadow-sm">
-                        <div class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-gray-800">
-                            <span>MEJA GILIRAN INI:</span>
-                            <span class="bg-gray-800 text-white px-2 py-0.5 rounded font-black">${escapeHtml(currentTableFormatted)}</span>
-                        </div>
-                        <div class="text-[11px] font-bold text-amber-900 bg-amber-100 px-2.5 py-2 rounded border border-amber-300">
-                            <span class="block mb-1 text-xs">🔔 <strong>ARAHAN PENGURUS PESERTA:</strong></span>
-                            Selepas turun dari pentas, arahkan peserta bergerak ke <strong>${escapeHtml(nextTableFormatted)}</strong> untuk bersedia bagi giliran anugerah <strong>#${escapeHtml(nextRecord.bil)}</strong>.
-                        </div>
-                    </div>
-                `;
-            } else {
-                tableDisplayHtml = `
-                    <div class="mt-1.5 flex flex-col gap-1.5 p-2 bg-emerald-50 border border-emerald-300 rounded shadow-sm">
-                        <div class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-gray-800">
-                            <span>MEJA GILIRAN INI:</span>
-                            <span class="bg-gray-800 text-white px-2 py-0.5 rounded font-black">${escapeHtml(currentTableFormatted)}</span>
-                        </div>
-                        <div class="text-[11px] font-bold text-emerald-900 bg-emerald-100 px-2.5 py-2 rounded border border-emerald-300">
-                            <span class="block mb-1 text-xs">✅ <strong>ARAHAN PENGURUS PESERTA:</strong></span>
-                            Ini adalah anugerah TERAKHIR peserta. Selepas turun pentas, peserta boleh kembali ke mana-mana tempat duduk kosong asal mereka atau mengikut protokol majlis.
-                        </div>
-                    </div>
-                `;
+            const activeRecord = personRecords.find(r => !r.naik_pentas_status);
+            const activeIndex = activeRecord ? personRecords.findIndex(r => r.id === activeRecord.id) : personRecords.length - 1;
+
+            const rawActiveTable = activeRecord ? activeRecord.no_meja : personRecords[personRecords.length - 1].no_meja;
+            const currentPhysicalTable = (rawActiveTable && rawActiveTable !== '-' && !rawActiveTable.toString().toUpperCase().startsWith('MEJA'))
+                ? 'MEJA ' + rawActiveTable : (rawActiveTable || '-');
+
+            let movementInstruction = '';
+
+            if (row.naik_pentas_status) {
+                 movementInstruction = `<span class="block text-[11px] text-gray-500 italic mt-1.5">✓ Telah selesai (Anugerah ${awardIndex}/${totalAwards}). Berada di ${escapeHtml(currentPhysicalTable)}.</span>`;
+            } else if (activeRecord && activeRecord.id === row.id) {
+                 const nextRecord = personRecords[currentIndex + 1];
+                 if (nextRecord) {
+                     const nextTable = (nextRecord.no_meja && nextRecord.no_meja !== '-' && !nextRecord.no_meja.toString().toUpperCase().startsWith('MEJA'))
+                        ? 'MEJA ' + nextRecord.no_meja : (nextRecord.no_meja || '-');
+                     movementInstruction = `
+                        <div class="mt-1.5 flex flex-col gap-1 p-2 bg-amber-50 border border-amber-300 rounded shadow-sm">
+                            <div class="text-[11px] font-bold text-amber-900 leading-tight">
+                                🔔 <strong>ARAHAN:</strong> Selepas turun pentas ini, arahkan peserta bergerak ke <strong>${escapeHtml(nextTable)}</strong> untuk anugerah seterusnya (#${escapeHtml(nextRecord.bil)}).
+                            </div>
+                        </div>`;
+                 } else {
+                     movementInstruction = `
+                        <div class="mt-1.5 flex flex-col gap-1 p-2 bg-emerald-50 border border-emerald-300 rounded shadow-sm">
+                            <div class="text-[11px] font-bold text-emerald-900 leading-tight">
+                                ✅ <strong>ARAHAN:</strong> Ini anugerah TERAKHIR. Peserta boleh kembali ke tempat duduk asal atau mengikut protokol majlis.
+                            </div>
+                        </div>`;
+                 }
+            } else if (activeRecord) {
+                 movementInstruction = `<span class="block text-[11px] text-gray-500 italic mt-1.5">Belum tiba giliran ini. Sedang berada di ${escapeHtml(currentPhysicalTable)} (Anugerah ${activeIndex + 1}/${totalAwards}).</span>`;
             }
-        } else {
+
             tableDisplayHtml = `
+                <div class="mt-1.5 flex flex-col">
+                    <div class="text-[11px] font-semibold text-blue-700 flex items-center gap-1">
+                        🪑 Meja Semasa (Fizikal): <span class="font-bold text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded">${escapeHtml(currentPhysicalTable)}</span>
+                    </div>
+                    ${movementInstruction}
+                </div>
+            `;
+        } else {
+             const currentTableFormatted = (rawCurrentTable !== '-' && !rawCurrentTable.toString().toUpperCase().startsWith('MEJA'))
+                ? 'MEJA ' + rawCurrentTable : rawCurrentTable;
+             tableDisplayHtml = `
                 <div class="mt-1.5 text-[11px] font-semibold text-blue-700 flex items-center gap-1">
                     🪑 Meja Semasa: <span class="font-bold text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded">${escapeHtml(currentTableFormatted)}</span>
                 </div>
@@ -600,10 +610,6 @@ function renderTables() {
             : (totalAwards > 1 ? `<span class="text-[9px] text-gray-500 block mt-0.5 font-medium">Pentas ${awardIndex}/${totalAwards}</span>` : '');
         const notPresentMsg = !isHadir ? `<span class="text-[9px] md:text-[10px] text-gray-500 mt-1 italic block text-center leading-tight">Belum lapor<br>hadir</span>` : '';
         const disabledAttr = !isHadir ? 'disabled' : '';
-        
-        const giliranCircle = `<div class="inline-flex h-10 w-10 ${isNaikPentas ? 'bg-green-200 border-green-400 text-green-800' : 'bg-blue-100 border-blue-300 text-blue-800'} rounded-full items-center justify-center border-2 text-sm font-black mx-auto mb-2 shadow-sm">
-                        ${escapeHtml(row.bil)}
-                    </div>`;
 
         const multiAwardTag = totalAwards > 1 ? `
             <span class="inline-flex items-center text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-300 ml-1">
@@ -615,7 +621,14 @@ function renderTables() {
             <tr id="row-${row.id}" class="${rowClass} border-b border-gray-100">
                 
                 <td class="md:hidden px-2 py-4 align-top w-20 text-center border-r border-gray-100 bg-gray-50/50">
-                    ${giliranCircle}
+                    <div class="flex flex-col items-center justify-center mb-3">
+                        <div class="text-[9px] font-bold text-gray-700 bg-gray-200 px-1.5 py-1 rounded-t-md border-b border-gray-300 w-full uppercase shadow-sm leading-tight text-center">
+                            Meja<br><span class="text-xs text-gray-900">${escapeHtml(currentAwardTableShort)}</span>
+                        </div>
+                        <div class="inline-flex h-9 w-9 ${isNaikPentas ? 'bg-green-200 border-green-400 text-green-800' : 'bg-blue-100 border-blue-300 text-blue-800'} bg-white rounded-full items-center justify-center border-2 text-sm font-black shadow-sm z-10 -mt-2">
+                            ${escapeHtml(row.bil)}
+                        </div>
+                    </div>
                     <div id="pentas-container-mb-${row.id}" class="flex flex-col items-center justify-center mt-2">
                         <input type="checkbox" 
                             id="pentas-check-mb-${row.id}" 
@@ -626,6 +639,7 @@ function renderTables() {
                         ${pentasLabel}
                     </div>
                 </td>
+                
                 <td class="md:hidden px-3 py-4 align-top">
                     <div class="text-sm font-bold text-gray-900 leading-tight mb-1 ${isNaikPentas ? 'line-through text-gray-500' : ''}">
                         ${escapeHtml(row.nama)} ${multiAwardTag}
@@ -644,10 +658,16 @@ function renderTables() {
                 </td>
 
                 <td class="hidden md:table-cell px-4 py-4 whitespace-nowrap text-center align-middle">
-                    <div class="inline-flex h-10 w-10 ${isNaikPentas ? 'bg-green-200 border-green-400 text-green-800' : 'bg-blue-100 border-blue-300 text-blue-800'} rounded-full items-center justify-center border-2 text-sm font-black shadow-sm">
-                        ${escapeHtml(row.bil)}
+                    <div class="flex flex-col items-center justify-center">
+                        <div class="text-[10px] font-bold text-gray-700 bg-gray-200 px-2 py-1 rounded-t-md border-b border-gray-300 w-full uppercase shadow-sm leading-tight text-center">
+                            MEJA<br><span class="text-sm text-gray-900">${escapeHtml(currentAwardTableShort)}</span>
+                        </div>
+                        <div class="inline-flex h-10 w-10 ${isNaikPentas ? 'bg-green-200 border-green-400 text-green-800' : 'bg-blue-100 border-blue-300 text-blue-800'} bg-white rounded-full items-center justify-center border-2 text-sm font-black shadow-sm z-10 -mt-3">
+                            ${escapeHtml(row.bil)}
+                        </div>
                     </div>
                 </td>
+                
                 <td class="hidden md:table-cell px-6 py-4 align-middle">
                     <div class="text-sm font-bold text-gray-900 ${isNaikPentas ? 'line-through text-gray-500' : ''}">
                         ${escapeHtml(row.nama)} ${multiAwardTag}
