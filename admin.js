@@ -210,13 +210,13 @@ function buildProfiles() {
 
     personProfilesMap.forEach(records => {
         records.sort((a, b) => {
+            const bilA = parseInt(a.bil) || 0;
+            const bilB = parseInt(b.bil) || 0;
+            if (bilA !== bilB) return bilA - bilB;
+
             const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
             const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
-            
-            const cmp = mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
-            if (cmp !== 0) return cmp;
-            
-            return (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0);
+            return mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
         });
     });
 }
@@ -354,16 +354,14 @@ async function fetchData() {
         allRecipients = data || [];
         
         allRecipients.sort((a, b) => {
-            const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
-            const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
-            
-            const cmp = mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
-            
-            if (cmp !== 0) return cmp;
-            
             const bilA = parseInt(a.bil) || 0;
             const bilB = parseInt(b.bil) || 0;
-            return bilA - bilB;
+            
+            if (bilA !== bilB) return bilA - bilB;
+            
+            const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            return mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
         });
         
         populateKategoriDropdown(allRecipients);
@@ -511,8 +509,9 @@ function renderTables() {
         const currentIndex = personRecords.findIndex(r => r.id === row.id);
         const awardIndex = currentIndex + 1;
         
-        const rawCurrentTable = row.no_meja ? row.no_meja : '-';
-        const currentAwardTableShort = rawCurrentTable.toString().toUpperCase().replace(/^MEJA\s*/, '');
+        const rawTableStr = (row.no_meja !== null && row.no_meja !== undefined) ? row.no_meja.toString().trim() : '';
+        const hasTable = rawTableStr !== '' && rawTableStr !== '-' && rawTableStr.toUpperCase() !== 'TIADA' && rawTableStr.toUpperCase() !== 'TIADA MEJA';
+        const currentAwardTableShort = hasTable ? rawTableStr.toUpperCase().replace(/^MEJA\s*/i, '').trim() : '';
 
         let tableDisplayHtml = '';
         
@@ -521,52 +520,72 @@ function renderTables() {
             const activeIndex = activeRecord ? personRecords.findIndex(r => r.id === activeRecord.id) : personRecords.length - 1;
 
             const rawActiveTable = activeRecord ? activeRecord.no_meja : personRecords[personRecords.length - 1].no_meja;
-            const currentPhysicalTable = (rawActiveTable && rawActiveTable !== '-' && !rawActiveTable.toString().toUpperCase().startsWith('MEJA'))
-                ? 'MEJA ' + rawActiveTable : (rawActiveTable || '-');
+            const activeTableStr = (rawActiveTable !== null && rawActiveTable !== undefined) ? rawActiveTable.toString().trim() : '';
+            const hasActiveTable = activeTableStr !== '' && activeTableStr !== '-' && activeTableStr.toUpperCase() !== 'TIADA' && activeTableStr.toUpperCase() !== 'TIADA MEJA';
+            const currentPhysicalTable = hasActiveTable 
+                ? (!activeTableStr.toUpperCase().startsWith('MEJA') ? 'MEJA ' + activeTableStr : activeTableStr)
+                : null;
 
             let movementInstruction = '';
 
             if (row.naik_pentas_status) {
-                 movementInstruction = `<span class="block text-[11px] text-gray-500 italic mt-1.5">✓ Telah selesai (Anugerah ${awardIndex}/${totalAwards}). Berada di ${escapeHtml(currentPhysicalTable)}.</span>`;
+                const locationText = currentPhysicalTable ? ` Berada di ${escapeHtml(currentPhysicalTable)}.` : '';
+                movementInstruction = `<span class="block text-[11px] text-gray-500 italic mt-1.5">✓ Telah selesai (Anugerah ${awardIndex}/${totalAwards}).${locationText}</span>`;
             } else if (activeRecord && activeRecord.id === row.id) {
-                 const nextRecord = personRecords[currentIndex + 1];
-                 if (nextRecord) {
-                     const nextTable = (nextRecord.no_meja && nextRecord.no_meja !== '-' && !nextRecord.no_meja.toString().toUpperCase().startsWith('MEJA'))
-                        ? 'MEJA ' + nextRecord.no_meja : (nextRecord.no_meja || '-');
-                     movementInstruction = `
+                const nextRecord = personRecords[currentIndex + 1];
+                if (nextRecord) {
+                    const nextTableRaw = (nextRecord.no_meja !== null && nextRecord.no_meja !== undefined) ? nextRecord.no_meja.toString().trim() : '';
+                    const hasNextTable = nextTableRaw !== '' && nextTableRaw !== '-' && nextTableRaw.toUpperCase() !== 'TIADA' && nextTableRaw.toUpperCase() !== 'TIADA MEJA';
+                    const nextTableFormatted = hasNextTable 
+                        ? (!nextTableRaw.toUpperCase().startsWith('MEJA') ? 'MEJA ' + nextTableRaw : nextTableRaw)
+                        : null;
+
+                    const arahanGerak = nextTableFormatted 
+                        ? `arahkan peserta bergerak ke <strong>${escapeHtml(nextTableFormatted)}</strong> untuk anugerah seterusnya (#${escapeHtml(nextRecord.bil)}).`
+                        : `peserta bersedia untuk anugerah seterusnya (#${escapeHtml(nextRecord.bil)}).`;
+
+                    movementInstruction = `
                         <div class="mt-1.5 flex flex-col gap-1 p-2 bg-amber-50 border border-amber-300 rounded shadow-sm">
                             <div class="text-[11px] font-bold text-amber-900 leading-tight">
-                                🔔 <strong>ARAHAN:</strong> Selepas turun pentas ini, arahkan peserta bergerak ke <strong>${escapeHtml(nextTable)}</strong> untuk anugerah seterusnya (#${escapeHtml(nextRecord.bil)}).
+                                🔔 <strong>ARAHAN:</strong> Selepas turun pentas ini, ${arahanGerak}
                             </div>
                         </div>`;
-                 } else {
-                     movementInstruction = `
+                } else {
+                    movementInstruction = `
                         <div class="mt-1.5 flex flex-col gap-1 p-2 bg-emerald-50 border border-emerald-300 rounded shadow-sm">
                             <div class="text-[11px] font-bold text-emerald-900 leading-tight">
                                 ✅ <strong>ARAHAN:</strong> Ini anugerah TERAKHIR. Peserta boleh kembali ke tempat duduk asal atau mengikut protokol majlis.
                             </div>
                         </div>`;
-                 }
+                }
             } else if (activeRecord) {
-                 movementInstruction = `<span class="block text-[11px] text-gray-500 italic mt-1.5">Belum tiba giliran ini. Sedang berada di ${escapeHtml(currentPhysicalTable)} (Anugerah ${activeIndex + 1}/${totalAwards}).</span>`;
+                const locationText = currentPhysicalTable ? ` Sedang berada di ${escapeHtml(currentPhysicalTable)}` : '';
+                movementInstruction = `<span class="block text-[11px] text-gray-500 italic mt-1.5">Belum tiba giliran ini.${locationText} (Anugerah ${activeIndex + 1}/${totalAwards}).</span>`;
             }
+
+            const physicalTableBadge = currentPhysicalTable ? `
+                <div class="text-[11px] font-semibold text-blue-700 flex items-center gap-1">
+                    🪑 Meja Semasa (Fizikal): <span class="font-bold text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded">${escapeHtml(currentPhysicalTable)}</span>
+                </div>
+            ` : '';
 
             tableDisplayHtml = `
                 <div class="mt-1.5 flex flex-col">
-                    <div class="text-[11px] font-semibold text-blue-700 flex items-center gap-1">
-                        🪑 Meja Semasa (Fizikal): <span class="font-bold text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded">${escapeHtml(currentPhysicalTable)}</span>
-                    </div>
+                    ${physicalTableBadge}
                     ${movementInstruction}
                 </div>
             `;
         } else {
-             const currentTableFormatted = (rawCurrentTable !== '-' && !rawCurrentTable.toString().toUpperCase().startsWith('MEJA'))
-                ? 'MEJA ' + rawCurrentTable : rawCurrentTable;
-             tableDisplayHtml = `
-                <div class="mt-1.5 text-[11px] font-semibold text-blue-700 flex items-center gap-1">
-                    🪑 Meja Semasa: <span class="font-bold text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded">${escapeHtml(currentTableFormatted)}</span>
-                </div>
-            `;
+            if (hasTable) {
+                const currentTableFormatted = !currentAwardTableShort.startsWith('MEJA') ? 'MEJA ' + currentAwardTableShort : currentAwardTableShort;
+                tableDisplayHtml = `
+                    <div class="mt-1.5 text-[11px] font-semibold text-blue-700 flex items-center gap-1">
+                        🪑 Meja Semasa: <span class="font-bold text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded">${escapeHtml(currentTableFormatted)}</span>
+                    </div>
+                `;
+            } else {
+                tableDisplayHtml = '';
+            }
         }
 
         if (isHadir) {
@@ -617,21 +636,34 @@ function renderTables() {
             </span>
         ` : '';
 
-        // UI Kad Penunjuk Bersepadu (Unified Badge Card) tanpa ruang bertindih (overlap)
         const badgeColorClass = isNaikPentas ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-blue-100 text-blue-800 border-blue-300';
         const badgeHeaderClass = isNaikPentas ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-100 border-slate-200';
         
-        const unifiedBadge = `
-            <div class="flex flex-col rounded-md shadow-sm border ${badgeColorClass} overflow-hidden w-16 mx-auto mb-2 bg-white">
-                <div class="w-full ${badgeHeaderClass} px-1 py-1.5 text-center border-b">
-                    <span class="block text-[9px] font-bold text-slate-500 uppercase leading-none mb-0.5">Meja</span>
-                    <span class="block text-xs font-black text-slate-800 leading-none">${escapeHtml(currentAwardTableShort)}</span>
+        let unifiedBadge = '';
+        if (hasTable) {
+            unifiedBadge = `
+                <div class="flex flex-col rounded-md shadow-sm border ${badgeColorClass} overflow-hidden w-16 mx-auto mb-2 bg-white">
+                    <div class="w-full ${badgeHeaderClass} px-1 py-1.5 text-center border-b">
+                        <span class="block text-[9px] font-bold text-slate-500 uppercase leading-none mb-0.5">Meja</span>
+                        <span class="block text-xs font-black text-slate-800 leading-none">${escapeHtml(currentAwardTableShort)}</span>
+                    </div>
+                    <div class="w-full px-1 py-1.5 text-center">
+                        <span class="block text-sm font-black leading-none">${escapeHtml(row.bil)}</span>
+                    </div>
                 </div>
-                <div class="w-full px-1 py-1.5 text-center">
-                    <span class="block text-sm font-black leading-none">${escapeHtml(row.bil)}</span>
+            `;
+        } else {
+            unifiedBadge = `
+                <div class="flex flex-col rounded-md shadow-sm border ${badgeColorClass} overflow-hidden w-16 mx-auto mb-2 bg-white">
+                    <div class="w-full ${badgeHeaderClass} px-1 py-1 text-center border-b">
+                        <span class="block text-[9px] font-bold text-slate-500 uppercase leading-none">Giliran</span>
+                    </div>
+                    <div class="w-full px-1 py-2 text-center">
+                        <span class="block text-base font-black leading-none">${escapeHtml(row.bil)}</span>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
 
         html += `
             <tr id="row-${row.id}" class="${rowClass} border-b border-gray-100">
