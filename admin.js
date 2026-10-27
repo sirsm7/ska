@@ -210,7 +210,16 @@ function buildProfiles() {
     });
 
     personProfilesMap.forEach(records => {
-        records.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
+        // NATURAL SORT: Meja dahulu, kemudian Bil (Memastikan anugerah meja terawal menjadi primary)
+        records.sort((a, b) => {
+            const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            
+            const cmp = mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
+            if (cmp !== 0) return cmp;
+            
+            return (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0);
+        });
     });
 }
 

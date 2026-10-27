@@ -153,12 +153,25 @@ async function fetchTableData() {
     try {
         const { data, error } = await supabaseClient
             .from('recipients')
-            .select('*')
-            .order('no_meja', { ascending: true })
-            .order('bil', { ascending: true });
+            .select('*');
 
         if (error) throw error;
         allRecipients = data || [];
+
+        // Pelaksanaan Natural Sort untuk 'no_meja' diikuti 'bil'
+        allRecipients.sort((a, b) => {
+            const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            
+            const cmp = mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
+            
+            if (cmp !== 0) return cmp;
+            
+            const bilA = parseInt(a.bil) || 0;
+            const bilB = parseInt(b.bil) || 0;
+            return bilA - bilB;
+        });
+
         groupDataByTable();
         updateOverviewCards();
         renderTableShortcuts();
@@ -225,7 +238,17 @@ function groupDataByTable() {
             primaryRsvpStatus = primaryRec.rsvp_status;
         }
 
-        allPersonRecords.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
+        // NATURAL SORT: Meja dahulu, kemudian Bil
+        allPersonRecords.sort((a, b) => {
+            const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            
+            const cmp = mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
+            if (cmp !== 0) return cmp;
+            
+            return (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0);
+        });
+
         const currentIndex = allPersonRecords.findIndex(r => r.id === rec.id);
         const hasNext = currentIndex < (allPersonRecords.length - 1);
         
@@ -262,6 +285,7 @@ function groupDataByTable() {
     });
 
     Object.keys(groupedTables).forEach(tKey => {
+        // Susun peserta dalam meja mengikut giliran pentas mereka untuk meja itu
         groupedTables[tKey].seatedParticipants.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
     });
 }

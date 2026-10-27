@@ -194,7 +194,16 @@ function buildPersonProfiles(dataset) {
 
     const profiles = new Map();
     map.forEach((records, key) => {
-        records.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
+        // NATURAL SORT: Susun anugerah individu mengikut Meja kemudian Bil
+        records.sort((a, b) => {
+            const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            
+            const cmp = mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
+            if (cmp !== 0) return cmp;
+            
+            return (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0);
+        });
 
         const primaryRecord = records[0];
         let primaryTable = primaryRecord.no_meja;
@@ -273,12 +282,28 @@ async function fetchAllData() {
     try {
         const { data, error } = await supabaseClient
             .from('recipients')
-            .select('*')
-            .order('sekolah', { ascending: true })
-            .order('bil', { ascending: true });
+            .select('*');
 
         if (error) throw error;
         allData = data || [];
+        
+        // NATURAL SORT untuk data utama (walaupun paparan dikumpulkan ikut sekolah, ini memastikan konsistensi)
+        allData.sort((a, b) => {
+            const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            
+            const cmp = mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
+            if (cmp !== 0) return cmp;
+            
+            return (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0);
+        });
+
+        // Selepas diisih secara semulajadi, kita boleh kekalkan aturan asalnya berpandukan sekolah
+        allData.sort((a, b) => {
+            const sekA = a.sekolah ? a.sekolah.toUpperCase() : '';
+            const sekB = b.sekolah ? b.sekolah.toUpperCase() : '';
+            return sekA.localeCompare(sekB);
+        });
         
         // Panggil fungsi bina dropdown kategori dinamik
         populateKategoriDropdown(allData);
@@ -407,7 +432,16 @@ function renderResults(recipients, query, category) {
     let totalRenderedRecords = 0;
 
     for (const [sekolah, records] of Object.entries(groupedBySchool)) {
-        records.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
+        // Natural Sort untuk persembahan pada grid senarai sekolah
+        records.sort((a, b) => {
+            const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+            
+            const cmp = mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
+            if (cmp !== 0) return cmp;
+            
+            return (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0);
+        });
 
         const hasBelumHadir = records.some(s => s.attendance_status === 'BELUM HADIR');
         
