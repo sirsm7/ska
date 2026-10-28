@@ -6,6 +6,7 @@ let allData = [];
 let personProfilesMap = new Map();
 let typingTimer;
 const doneTypingInterval = 400;
+let realtimeSubscription = null;
 
 // DOM Elements
 const searchInput = document.getElementById('searchInput');
@@ -83,7 +84,27 @@ function showError(msg) {
     if (!errorText || !errorMessage) return;
     errorText.textContent = msg;
     errorMessage.classList.remove('hidden');
-    setTimeout(() => errorMessage.classList.add('hidden'), 5000);
+    setTimeout(() => {
+        if (errorMessage) errorMessage.classList.add('hidden');
+    }, 5000);
+}
+
+function sortAllData(data) {
+    data.sort((a, b) => {
+        const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+        const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+        
+        const cmp = mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
+        if (cmp !== 0) return cmp;
+        
+        return (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0);
+    });
+
+    data.sort((a, b) => {
+        const sekA = a.sekolah ? a.sekolah.toUpperCase() : '';
+        const sekB = b.sekolah ? b.sekolah.toUpperCase() : '';
+        return sekA.localeCompare(sekB);
+    });
 }
 
 function buildPersonProfiles(dataset) {
@@ -96,7 +117,6 @@ function buildPersonProfiles(dataset) {
 
     const profiles = new Map();
     map.forEach((records, key) => {
-        // NATURAL SORT: Susun anugerah individu mengikut Meja kemudian Bil
         records.sort((a, b) => {
             const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
             const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
@@ -128,6 +148,51 @@ function buildPersonProfiles(dataset) {
     return profiles;
 }
 
+function setupRealtimeSubscription() {
+    if (realtimeSubscription) {
+        supabaseClient.removeChannel(realtimeSubscription);
+        realtimeSubscription = null;
+    }
+
+    realtimeSubscription = supabaseClient
+        .channel('realtime:recipients:app')
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'recipients' },
+            (payload) => {
+                handleRealtimeUpdate(payload);
+            }
+        )
+        .subscribe();
+}
+
+function handleRealtimeUpdate(payload) {
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+
+    if (eventType === 'INSERT') {
+        if (!allData.some(r => r.id === newRecord.id)) {
+            allData.push(newRecord);
+            sortAllData(allData);
+            personProfilesMap = buildPersonProfiles(allData);
+            processSearch();
+        }
+    } else if (eventType === 'UPDATE') {
+        const index = allData.findIndex(r => r.id === newRecord.id);
+        if (index !== -1) {
+            allData[index] = { ...allData[index], ...newRecord };
+        } else {
+            allData.push(newRecord);
+        }
+        sortAllData(allData);
+        personProfilesMap = buildPersonProfiles(allData);
+        processSearch();
+    } else if (eventType === 'DELETE') {
+        allData = allData.filter(r => r.id !== oldRecord.id);
+        personProfilesMap = buildPersonProfiles(allData);
+        processSearch();
+    }
+}
+
 async function fetchAllData() {
     if (loadingIndicator) loadingIndicator.classList.remove('hidden');
     if (initialState) initialState.classList.add('hidden');
@@ -140,26 +205,11 @@ async function fetchAllData() {
         if (error) throw error;
         allData = data || [];
 
-        // NATURAL SORT untuk data utama (walaupun paparan dikumpulkan ikut sekolah, ini memastikan konsistensi)
-        allData.sort((a, b) => {
-            const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
-            const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
-            
-            const cmp = mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
-            if (cmp !== 0) return cmp;
-            
-            return (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0);
-        });
-
-        // Selepas diisih secara semulajadi, kita boleh kekalkan aturan asalnya berpandukan sekolah
-        allData.sort((a, b) => {
-            const sekA = a.sekolah ? a.sekolah.toUpperCase() : '';
-            const sekB = b.sekolah ? b.sekolah.toUpperCase() : '';
-            return sekA.localeCompare(sekB);
-        });
-
+        sortAllData(allData);
         personProfilesMap = buildPersonProfiles(allData);
         processSearch();
+
+        setupRealtimeSubscription();
     } catch (error) {
         console.error("Fetch Error:", error);
         showError("Gagal memuat turun maklumat. Sila muat semula laman.");
@@ -172,9 +222,9 @@ function processSearch() {
     const query = searchInput ? searchInput.value.trim().toUpperCase() : '';
     
     if (query.length < 3) {
-        resultsContainer.innerHTML = '';
+        if (resultsContainer) resultsContainer.innerHTML = '';
         if (initialState) initialState.classList.remove('hidden');
-        if (query.length > 0 && query.length < 3) {
+        if (query.length > 0 && query.length < 3 && resultsContainer) {
             resultsContainer.innerHTML = `<div class="text-center text-gray-500 py-8 text-sm">Sila masukkan sekurang-kurangnya 3 aksara untuk carian...</div>`;
         }
         return;
@@ -224,7 +274,6 @@ function renderResults(recipients, query) {
     let html = '';
 
     for (const [sekolah, records] of Object.entries(groupedBySchool)) {
-        // Unikkan profil berdasarkan nama untuk elak butang bertindih bagi penerima pelbagai anugerah
         const uniqueProfiles = [];
         const seenKeys = new Set();
         
@@ -236,7 +285,6 @@ function renderResults(recipients, query) {
             }
         });
 
-        // Butang RSVP Pukal
         const safeSekolah = escapeHtml(sekolah.replace(/'/g, "\\'"));
         const btnPukalHtml = `
             <button onclick="openRsvpModal('PUKAL', null, null, '${safeSekolah}')" class="bg-blue-100 hover:bg-blue-200 text-blue-800 border border-blue-300 text-xs px-4 py-2 rounded-lg shadow-sm font-bold flex items-center transition w-full sm:w-auto justify-center">
@@ -288,7 +336,6 @@ function renderResults(recipients, query) {
                     <div class="flex flex-col md:flex-row justify-between gap-5">
                         
                         <div class="flex flex-row gap-4 items-start flex-1">
-                            <!-- Maklumat Meja & Giliran -->
                             <div class="flex flex-col gap-2 shrink-0">
                                 <div class="flex flex-col items-center justify-center w-16 h-16 md:w-20 md:h-20 text-center p-1 bg-blue-50 border border-blue-200 rounded-xl shadow-sm">
                                     <span class="text-[10px] font-bold text-blue-600 uppercase leading-tight">No<br>Meja</span>
@@ -300,7 +347,6 @@ function renderResults(recipients, query) {
                                 </div>
                             </div>
 
-                            <!-- Butiran Peserta -->
                             <div class="flex flex-col justify-center flex-1">
                                 <div class="flex flex-wrap items-center gap-2 mb-1.5">
                                     ${isMultiAward ? `
@@ -317,7 +363,6 @@ function renderResults(recipients, query) {
                             </div>
                         </div>
 
-                        <!-- Butang Tindakan RSVP -->
                         <div class="w-full md:w-auto flex flex-col justify-center shrink-0 mt-2 md:mt-0">
                             <button onclick="openRsvpModal('INDIVIDU', '${primaryRec.id}', '${safeNama}', '${safeSekolah}')" class="${isRsvpDone ? 'bg-white text-blue-600 border border-blue-300 hover:bg-blue-50' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'} px-5 py-3 rounded-xl font-bold text-sm flex items-center justify-center transition-colors w-full md:w-auto">
                                 ${isRsvpDone ? 'KEMASKINI RSVP' : 'BUAT PENGESAHAN'}
@@ -375,7 +420,7 @@ async function saveRsvp() {
     const selectedRadio = document.querySelector('input[name="rsvpType"]:checked');
 
     if (!selectedRadio) {
-        alert("Sila pilih status pengesahan anda terlebih dahulu.");
+        showError("Sila pilih status pengesahan anda terlebih dahulu.");
         return;
     }
     

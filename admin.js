@@ -7,6 +7,7 @@ let personProfilesMap = new Map();
 let currentRole = null; 
 let searchTimer;
 const doneTypingInterval = 400;
+let realtimeSubscription = null;
 
 const loginScreen = document.getElementById('loginScreen');
 const mainContent = document.getElementById('mainContent');
@@ -76,6 +77,10 @@ function checkSession() {
         
         fetchData();
     } else {
+        if (realtimeSubscription) {
+            supabaseClient.removeChannel(realtimeSubscription);
+            realtimeSubscription = null;
+        }
         currentRole = null;
         if (loginScreen) loginScreen.classList.remove('hidden');
         if (mainContent) mainContent.classList.add('hidden');
@@ -114,6 +119,10 @@ function handleLogin() {
 
 if (logoutBtn) {
     logoutBtn.addEventListener('click', function() {
+        if (realtimeSubscription) {
+            supabaseClient.removeChannel(realtimeSubscription);
+            realtimeSubscription = null;
+        }
         localStorage.removeItem('adminRole');
         checkSession();
     });
@@ -196,6 +205,19 @@ function hideProcess() {
 
 function getPersonKey(nama, sekolah) {
     return `${(nama || '').trim().toUpperCase()}|||${(sekolah || '').trim().toUpperCase()}`;
+}
+
+function sortRecipientData(data) {
+    data.sort((a, b) => {
+        const bilA = parseInt(a.bil) || 0;
+        const bilB = parseInt(b.bil) || 0;
+        
+        if (bilA !== bilB) return bilA - bilB;
+        
+        const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+        const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+        return mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
+    });
 }
 
 function buildProfiles() {
@@ -339,6 +361,57 @@ function populateKategoriDropdown(data) {
     }
 }
 
+function setupRealtimeSubscription() {
+    if (realtimeSubscription) {
+        supabaseClient.removeChannel(realtimeSubscription);
+        realtimeSubscription = null;
+    }
+
+    realtimeSubscription = supabaseClient
+        .channel('realtime:recipients:admin')
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'recipients' },
+            (payload) => {
+                handleRealtimeUpdate(payload);
+            }
+        )
+        .subscribe();
+}
+
+function handleRealtimeUpdate(payload) {
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+
+    if (eventType === 'INSERT') {
+        if (!allRecipients.some(r => r.id === newRecord.id)) {
+            allRecipients.push(newRecord);
+            sortRecipientData(allRecipients);
+            populateKategoriDropdown(allRecipients);
+            buildProfiles();
+            updateDashboard();
+            renderTables();
+        }
+    } else if (eventType === 'UPDATE') {
+        const index = allRecipients.findIndex(r => r.id === newRecord.id);
+        if (index !== -1) {
+            allRecipients[index] = { ...allRecipients[index], ...newRecord };
+        } else {
+            allRecipients.push(newRecord);
+            sortRecipientData(allRecipients);
+            populateKategoriDropdown(allRecipients);
+        }
+        buildProfiles();
+        updateDashboard();
+        renderTables();
+    } else if (eventType === 'DELETE') {
+        allRecipients = allRecipients.filter(r => r.id !== oldRecord.id);
+        populateKategoriDropdown(allRecipients);
+        buildProfiles();
+        updateDashboard();
+        renderTables();
+    }
+}
+
 async function fetchData() {
     if (!currentRole) return;
 
@@ -353,21 +426,13 @@ async function fetchData() {
         if (error) throw error;
         allRecipients = data || [];
         
-        allRecipients.sort((a, b) => {
-            const bilA = parseInt(a.bil) || 0;
-            const bilB = parseInt(b.bil) || 0;
-            
-            if (bilA !== bilB) return bilA - bilB;
-            
-            const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
-            const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
-            return mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
-        });
-        
+        sortRecipientData(allRecipients);
         populateKategoriDropdown(allRecipients);
         buildProfiles();
         updateDashboard();
         renderTables();
+
+        setupRealtimeSubscription();
     } catch (error) {
         console.error("Error fetching:", error);
         showMsg('Ralat', 'Gagal memuat turun data dari pelayan.');

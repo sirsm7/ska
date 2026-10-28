@@ -5,6 +5,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentTab = 'belum'; 
 let allData = []; 
 let personProfilesMap = new Map();
+let realtimeSubscription = null;
 
 // DOM Elements - Login & Main App
 const loginScreen = document.getElementById('loginScreen');
@@ -52,8 +53,12 @@ function checkSession() {
     if (isLogged === 'true') {
         if (loginScreen) loginScreen.classList.add('hidden');
         if (mainContent) mainContent.classList.remove('hidden');
-        fetchAllData(); // Fetch data hanya selepas berjaya log masuk
+        fetchAllData();
     } else {
+        if (realtimeSubscription) {
+            supabaseClient.removeChannel(realtimeSubscription);
+            realtimeSubscription = null;
+        }
         if (loginScreen) loginScreen.classList.remove('hidden');
         if (mainContent) mainContent.classList.add('hidden');
         if (passwordInput) passwordInput.value = '';
@@ -89,6 +94,10 @@ function handleLogin() {
 
 if (logoutBtn) {
     logoutBtn.addEventListener('click', function() {
+        if (realtimeSubscription) {
+            supabaseClient.removeChannel(realtimeSubscription);
+            realtimeSubscription = null;
+        }
         localStorage.removeItem('pendaftarLogged');
         checkSession();
     });
@@ -152,7 +161,53 @@ function showError(msg) {
     if (!errorText || !errorMessage) return;
     errorText.textContent = msg;
     errorMessage.classList.remove('hidden');
-    setTimeout(() => errorMessage.classList.add('hidden'), 5000);
+    setTimeout(() => {
+        if (errorMessage) errorMessage.classList.add('hidden');
+    }, 5000);
+}
+
+// Pengganti dialog konfirmasi tanpa menggunakan window.confirm
+function showCustomConfirm(message, onConfirm) {
+    let modal = document.getElementById('customConfirmModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'customConfirmModal';
+        modal.className = 'fixed inset-0 bg-gray-900 bg-opacity-60 z-[70] flex items-center justify-center p-4';
+        modal.innerHTML = `
+            <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full fade-in border border-gray-100 text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-100 mb-3">
+                    <svg class="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <h3 class="text-base font-bold text-gray-900 mb-2">Pengesahan Tindakan</h3>
+                <p id="customConfirmText" class="text-sm text-gray-600 mb-5 whitespace-pre-line leading-relaxed"></p>
+                <div class="flex gap-3">
+                    <button id="customConfirmCancelBtn" class="flex-1 py-2 px-3 bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs font-bold rounded-lg transition">Batal</button>
+                    <button id="customConfirmOkBtn" class="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition">Teruskan</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    const textEl = document.getElementById('customConfirmText');
+    const cancelBtn = document.getElementById('customConfirmCancelBtn');
+    const okBtn = document.getElementById('customConfirmOkBtn');
+
+    if (textEl) textEl.textContent = message;
+    modal.classList.remove('hidden');
+
+    if (cancelBtn) {
+        cancelBtn.onclick = () => {
+            modal.classList.add('hidden');
+        };
+    }
+
+    if (okBtn) {
+        okBtn.onclick = () => {
+            modal.classList.add('hidden');
+            if (typeof onConfirm === 'function') onConfirm();
+        };
+    }
 }
 
 function switchTab(tab) {
@@ -180,6 +235,24 @@ function switchTab(tab) {
 }
 
 window.switchTab = switchTab;
+
+function sortAllData(data) {
+    data.sort((a, b) => {
+        const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+        const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+        
+        const cmp = mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
+        if (cmp !== 0) return cmp;
+        
+        return (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0);
+    });
+
+    data.sort((a, b) => {
+        const sekA = a.sekolah ? a.sekolah.toUpperCase() : '';
+        const sekB = b.sekolah ? b.sekolah.toUpperCase() : '';
+        return sekA.localeCompare(sekB);
+    });
+}
 
 function buildPersonProfiles(dataset) {
     const map = new Map();
@@ -248,19 +321,15 @@ function buildPersonProfiles(dataset) {
     return profiles;
 }
 
-// Fungsi baharu untuk membina dropdown kategori secara dinamik
+// Fungsi membina dropdown kategori secara dinamik
 function populateKategoriDropdown(data) {
     if (!filterKategori) return;
     
     const currentSelection = filterKategori.value;
-    
-    // Ekstrak kategori unik, abaikan nilai kosong/null
     const uniqueKategori = [...new Set(data.map(item => item.kategori).filter(k => k && k.trim() !== ''))];
     
-    // Sort kategori mengikut susunan abjad
     uniqueKategori.sort((a, b) => a.localeCompare(b));
     
-    // Bina pilihan dropdown
     let optionsHtml = '<option value="ALL">Semua Kategori</option>';
     uniqueKategori.forEach(kat => {
         const safeKat = escapeHtml(kat);
@@ -269,9 +338,57 @@ function populateKategoriDropdown(data) {
     
     filterKategori.innerHTML = optionsHtml;
     
-    // Kekalkan pilihan sebelumnya jika ada dan masih wujud dalam senarai baharu
     if (uniqueKategori.includes(currentSelection) || currentSelection === 'ALL') {
         filterKategori.value = currentSelection;
+    }
+}
+
+// Integrasi Langganan Realtime Supabase (WebSocket)
+function setupRealtimeSubscription() {
+    if (realtimeSubscription) {
+        supabaseClient.removeChannel(realtimeSubscription);
+        realtimeSubscription = null;
+    }
+
+    realtimeSubscription = supabaseClient
+        .channel('realtime:recipients:daftar')
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'recipients' },
+            (payload) => {
+                handleRealtimeUpdate(payload);
+            }
+        )
+        .subscribe();
+}
+
+function handleRealtimeUpdate(payload) {
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+
+    if (eventType === 'INSERT') {
+        if (!allData.some(r => r.id === newRecord.id)) {
+            allData.push(newRecord);
+            sortAllData(allData);
+            populateKategoriDropdown(allData);
+            personProfilesMap = buildPersonProfiles(allData);
+            processDataView();
+        }
+    } else if (eventType === 'UPDATE') {
+        const index = allData.findIndex(r => r.id === newRecord.id);
+        if (index !== -1) {
+            allData[index] = { ...allData[index], ...newRecord };
+        } else {
+            allData.push(newRecord);
+            sortAllData(allData);
+            populateKategoriDropdown(allData);
+        }
+        personProfilesMap = buildPersonProfiles(allData);
+        processDataView();
+    } else if (eventType === 'DELETE') {
+        allData = allData.filter(r => r.id !== oldRecord.id);
+        populateKategoriDropdown(allData);
+        personProfilesMap = buildPersonProfiles(allData);
+        processDataView();
     }
 }
 
@@ -287,29 +404,12 @@ async function fetchAllData() {
         if (error) throw error;
         allData = data || [];
         
-        // NATURAL SORT untuk data utama (walaupun paparan dikumpulkan ikut sekolah, ini memastikan konsistensi)
-        allData.sort((a, b) => {
-            const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
-            const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
-            
-            const cmp = mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
-            if (cmp !== 0) return cmp;
-            
-            return (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0);
-        });
-
-        // Selepas diisih secara semulajadi, kita boleh kekalkan aturan asalnya berpandukan sekolah
-        allData.sort((a, b) => {
-            const sekA = a.sekolah ? a.sekolah.toUpperCase() : '';
-            const sekB = b.sekolah ? b.sekolah.toUpperCase() : '';
-            return sekA.localeCompare(sekB);
-        });
-        
-        // Panggil fungsi bina dropdown kategori dinamik
+        sortAllData(allData);
         populateKategoriDropdown(allData);
-
         personProfilesMap = buildPersonProfiles(allData);
         processDataView();
+
+        setupRealtimeSubscription();
 
     } catch (error) {
         console.error("Fetch Error:", error);
@@ -432,7 +532,7 @@ function renderResults(recipients, query, category) {
     let totalRenderedRecords = 0;
 
     for (const [sekolah, records] of Object.entries(groupedBySchool)) {
-        // Natural Sort untuk persembahan pada grid senarai sekolah
+        // Natural Sort untuk senarai sekolah
         records.sort((a, b) => {
             const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
             const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
@@ -497,7 +597,7 @@ function renderResults(recipients, query, category) {
                 ? (currentIndex === 0 ? 'award-card-first' : 'award-card-subsequent') 
                 : '';
 
-            // RSBP Visual Injection & Highlight TIDAK HADIR
+            // RSVP Visual Injection & Highlight TIDAK HADIR
             let rsvpStatus = row.rsvp_status || 'BELUM SAH';
             let rsvpCssClasses = '';
             let rsvpBadgeHtml = '';
@@ -505,7 +605,7 @@ function renderResults(recipients, query, category) {
             if (rsvpStatus !== 'BELUM SAH') {
                 if (row.attendance_status === 'BELUM HADIR') {
                     if (rsvpStatus === 'TIDAK HADIR') {
-                        rsvpCssClasses = 'border-l-4 border-red-500 bg-red-50'; // Penonjolan amaran
+                        rsvpCssClasses = 'border-l-4 border-red-500 bg-red-50';
                     } else {
                         rsvpCssClasses = 'rsvp-confirmed-border rsvp-confirmed-bg';
                     }
@@ -593,13 +693,11 @@ function renderResults(recipients, query, category) {
             // Penjanaan Dinamik Kotak Maklumat
             let boxesHtml = `
                 <div class="flex gap-2 flex-shrink-0">
-                    <!-- Kotak 1: No Meja -->
                     <div class="flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center p-1 shadow-sm ${box2Classes}">
                         <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">No<br>Meja</span>
                         <span class="text-base font-black text-slate-800 mt-0.5 break-all leading-tight">${escapeHtml(currentAwardTableShort)}</span>
                     </div>
 
-                    <!-- Kotak 2: No Giliran -->
                     <div class="flex flex-col items-center justify-center w-[4.5rem] h-[4.5rem] text-center p-1 shadow-sm ${box1Classes}">
                         <span class="text-[9px] font-bold text-slate-500 uppercase leading-tight">No<br>Giliran</span>
                         <span class="text-xl font-black text-slate-800 mt-0.5">${escapeHtml(row.bil)}</span>
@@ -622,11 +720,8 @@ function renderResults(recipients, query, category) {
                     <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5">
                         
                         <div class="flex flex-col md:flex-row gap-4 w-full lg:w-auto flex-1 items-start">
-                            
-                            <!-- Kotak Maklumat Bersebelahan -->
                             ${boxesHtml}
 
-                            <!-- Nama & Maklumat Tambahan Penerima -->
                             <div class="flex flex-col justify-center flex-1 w-full">
                                 <div class="flex flex-wrap items-center gap-2 mb-1.5">
                                     ${isMultiAward ? `
@@ -645,7 +740,6 @@ function renderResults(recipients, query, category) {
                             </div>
                         </div>
 
-                        <!-- Butang Tindakan -->
                         <div class="w-full lg:w-auto flex flex-col sm:flex-row flex-wrap gap-2 justify-end shrink-0 mt-2 lg:mt-0" id="${actionDomId}">
                             ${actionHtml}
                         </div>
@@ -696,10 +790,16 @@ window.clearSearch = clearSearch;
 async function markHadir(name, sekolah) {
     const targetRec = allData.find(r => r.nama === name && r.sekolah === sekolah);
     if (targetRec && targetRec.rsvp_status === 'TIDAK HADIR') {
-        const confirmOverride = confirm(`AMARAN: ${name} telah membuat pengesahan awal (RSVP) TIDAK HADIR.\n\nAdakah anda pasti mahu MENGABAIKAN rsvp tersebut dan menanda mereka sebagai HADIR?`);
-        if (!confirmOverride) return;
+        showCustomConfirm(
+            `AMARAN: ${name} telah membuat pengesahan awal (RSVP) TIDAK HADIR.\n\nAdakah anda pasti mahu MENGABAIKAN rsvp tersebut dan menanda mereka sebagai HADIR?`,
+            () => executeMarkHadir(name, sekolah)
+        );
+        return;
     }
+    executeMarkHadir(name, sekolah);
+}
 
+async function executeMarkHadir(name, sekolah) {
     const currentTime = new Date().toISOString();
 
     let updated = false;
@@ -738,8 +838,13 @@ async function markHadir(name, sekolah) {
 }
 
 async function markTidakHadir(name, sekolah) {
-    if (!confirm(`Mengesahkan ${name} sebagai TIDAK HADIR bagi semua giliran anugerah?`)) return;
-    
+    showCustomConfirm(
+        `Mengesahkan ${name} sebagai TIDAK HADIR bagi semua giliran anugerah?`,
+        () => executeMarkTidakHadir(name, sekolah)
+    );
+}
+
+async function executeMarkTidakHadir(name, sekolah) {
     const currentTime = new Date().toISOString();
 
     let updated = false;
@@ -778,8 +883,13 @@ async function markTidakHadir(name, sekolah) {
 }
 
 async function confirmPukalTidakHadir(sekolah) {
-    if (!confirm(`Mengesahkan SEMUA yang belum hadir bagi sekolah ${sekolah} sebagai TIDAK HADIR?`)) return;
-    
+    showCustomConfirm(
+        `Mengesahkan SEMUA yang belum hadir bagi sekolah ${sekolah} sebagai TIDAK HADIR?`,
+        () => executePukalTidakHadir(sekolah)
+    );
+}
+
+async function executePukalTidakHadir(sekolah) {
     const currentTime = new Date().toISOString();
     const selectedKat = filterKategori ? filterKategori.value : 'ALL';
     
@@ -820,7 +930,7 @@ async function confirmPukalTidakHadir(sekolah) {
             fetchAllData();
         }
     } else {
-        alert("Tiada penerima yang sepadan untuk ditandakan.");
+        showError("Tiada penerima yang sepadan untuk ditandakan.");
     }
 }
 
@@ -832,10 +942,16 @@ function resetRadioButtons() {
 function openWakilModal(id, name, sekolah) {
     const targetRec = allData.find(r => r.id === id);
     if (targetRec && targetRec.rsvp_status === 'TIDAK HADIR') {
-        const confirmOverride = confirm(`AMARAN: ${name} telah membuat pengesahan awal (RSVP) TIDAK HADIR.\n\nAdakah anda pasti mahu MENGABAIKAN rsvp tersebut dan mendaftarkan wakil untuk mereka?`);
-        if (!confirmOverride) return;
+        showCustomConfirm(
+            `AMARAN: ${name} telah membuat pengesahan awal (RSVP) TIDAK HADIR.\n\nAdakah anda pasti mahu MENGABAIKAN rsvp tersebut dan mendaftarkan wakil untuk mereka?`,
+            () => showWakilModal(id, name, sekolah)
+        );
+        return;
     }
+    showWakilModal(id, name, sekolah);
+}
 
+function showWakilModal(id, name, sekolah) {
     if (!modalMode || !modalRecipientId || !modalRecipientSekolah || !wakilModal) return;
     
     modalMode.value = 'INDIVIDU';
@@ -860,10 +976,16 @@ function openWakilModalPukal(sekolah) {
     
     const hasTidakHadirRsvp = pendingStudents.some(s => s.rsvp_status === 'TIDAK HADIR');
     if (hasTidakHadirRsvp) {
-        const confirmOverride = confirm(`AMARAN: Terdapat penerima dari ${sekolah} yang telah RSVP "TIDAK HADIR".\n\nAdakah anda pasti mahu menanda wakil secara pukal untuk semua yang belum hadir?`);
-        if (!confirmOverride) return;
+        showCustomConfirm(
+            `AMARAN: Terdapat penerima dari ${sekolah} yang telah RSVP "TIDAK HADIR".\n\nAdakah anda pasti mahu menanda wakil secara pukal untuk semua yang belum hadir?`,
+            () => showWakilModalPukal(sekolah)
+        );
+        return;
     }
+    showWakilModalPukal(sekolah);
+}
 
+function showWakilModalPukal(sekolah) {
     if (!modalMode || !modalRecipientSekolah || !wakilModal) return;
     
     modalMode.value = 'PUKAL';
@@ -890,7 +1012,7 @@ async function saveWakil() {
     const selectedRadio = document.querySelector('input[name="wakilType"]:checked');
 
     if (!selectedRadio) {
-        alert("Sila pilih kategori wakil.");
+        showError("Sila pilih kategori wakil terlebih dahulu.");
         return;
     }
     const wakilType = selectedRadio.value;
@@ -959,7 +1081,7 @@ async function saveWakil() {
 
                 if (error) throw error;
             } else {
-                alert("Tiada rekod yang sepadan untuk ditandakan (berdasarkan tapisan kategori).");
+                showError("Tiada rekod yang sepadan untuk ditandakan (berdasarkan tapisan kategori).");
             }
         }
         

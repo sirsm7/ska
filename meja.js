@@ -6,6 +6,7 @@ let allRecipients = [];
 let groupedTables = {};
 let activeTableShortcut = null;
 let currentRole = null;
+let realtimeSubscription = null;
 
 const searchTableInput = document.getElementById('searchTableInput');
 const resetSearchBtn = document.getElementById('resetSearchBtn');
@@ -51,6 +52,10 @@ function checkSession() {
         }
         return true;
     } else {
+        if (realtimeSubscription) {
+            supabaseClient.removeChannel(realtimeSubscription);
+            realtimeSubscription = null;
+        }
         currentRole = null;
         window.location.href = 'admin.html';
         return false;
@@ -72,6 +77,10 @@ document.addEventListener('DOMContentLoaded', () => {
 function setupEventListeners() {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
+            if (realtimeSubscription) {
+                supabaseClient.removeChannel(realtimeSubscription);
+                realtimeSubscription = null;
+            }
             localStorage.removeItem('adminRole');
             window.location.href = 'admin.html';
         });
@@ -145,6 +154,78 @@ function naturalSort(a, b) {
     return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 }
 
+function sortRecipientData(data) {
+    data.sort((a, b) => {
+        const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+        const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
+        
+        const cmp = mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
+        if (cmp !== 0) return cmp;
+        
+        const bilA = parseInt(a.bil) || 0;
+        const bilB = parseInt(b.bil) || 0;
+        return bilA - bilB;
+    });
+}
+
+function setupRealtimeSubscription() {
+    if (realtimeSubscription) {
+        supabaseClient.removeChannel(realtimeSubscription);
+        realtimeSubscription = null;
+    }
+
+    realtimeSubscription = supabaseClient
+        .channel('realtime:recipients:meja')
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'recipients' },
+            (payload) => {
+                handleRealtimeUpdate(payload);
+            }
+        )
+        .subscribe();
+}
+
+function handleRealtimeUpdate(payload) {
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+
+    if (eventType === 'INSERT') {
+        if (!allRecipients.some(r => r.id === newRecord.id)) {
+            allRecipients.push(newRecord);
+            sortRecipientData(allRecipients);
+            groupDataByTable();
+            updateOverviewCards();
+            renderTableShortcuts();
+            renderTableGrid();
+        }
+    } else if (eventType === 'UPDATE') {
+        const index = allRecipients.findIndex(r => r.id === newRecord.id);
+        if (index !== -1) {
+            allRecipients[index] = { ...allRecipients[index], ...newRecord };
+        } else {
+            allRecipients.push(newRecord);
+        }
+        sortRecipientData(allRecipients);
+        groupDataByTable();
+        updateOverviewCards();
+        renderTableShortcuts();
+        renderTableGrid();
+    } else if (eventType === 'DELETE') {
+        allRecipients = allRecipients.filter(r => r.id !== oldRecord.id);
+        groupDataByTable();
+        updateOverviewCards();
+        renderTableShortcuts();
+        renderTableGrid();
+    }
+
+    if (tableModal && !tableModal.classList.contains('hidden') && modalTableName && modalTableName.textContent) {
+        const currentOpenTable = modalTableName.textContent.trim();
+        if (currentOpenTable && groupedTables[currentOpenTable]) {
+            openDetailModal(currentOpenTable);
+        }
+    }
+}
+
 async function fetchTableData() {
     if (loadingIndicator) loadingIndicator.classList.remove('hidden');
     if (tableGrid) tableGrid.innerHTML = '';
@@ -158,24 +239,13 @@ async function fetchTableData() {
         if (error) throw error;
         allRecipients = data || [];
 
-        // Pelaksanaan Natural Sort untuk 'no_meja' diikuti 'bil'
-        allRecipients.sort((a, b) => {
-            const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
-            const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
-            
-            const cmp = mejaA.localeCompare(mejaB, undefined, { numeric: true, sensitivity: 'base' });
-            
-            if (cmp !== 0) return cmp;
-            
-            const bilA = parseInt(a.bil) || 0;
-            const bilB = parseInt(b.bil) || 0;
-            return bilA - bilB;
-        });
-
+        sortRecipientData(allRecipients);
         groupDataByTable();
         updateOverviewCards();
         renderTableShortcuts();
         renderTableGrid();
+
+        setupRealtimeSubscription();
     } catch (err) {
         console.error('Ralat menarik data meja:', err);
     } finally {
@@ -232,13 +302,11 @@ function groupDataByTable() {
             unifiedStatus = 'TIDAK HADIR';
         }
 
-        // Dapatkan status RSVP dari rekod utama penerima
         const primaryRec = allPersonRecords[0];
         if (primaryRec && primaryRec.rsvp_status) {
             primaryRsvpStatus = primaryRec.rsvp_status;
         }
 
-        // NATURAL SORT: Meja dahulu, kemudian Bil
         allPersonRecords.sort((a, b) => {
             const mejaA = a.no_meja ? a.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
             const mejaB = b.no_meja ? b.no_meja.toString().toUpperCase().replace(/^MEJA\s*/, '').trim() : '';
@@ -285,7 +353,6 @@ function groupDataByTable() {
     });
 
     Object.keys(groupedTables).forEach(tKey => {
-        // Susun peserta dalam meja mengikut giliran pentas mereka untuk meja itu
         groupedTables[tKey].seatedParticipants.sort((a, b) => (parseInt(a.bil) || 0) - (parseInt(b.bil) || 0));
     });
 }
@@ -297,7 +364,6 @@ function updateOverviewCards() {
     let empty = 0;
     let totalSeatedPersons = 0;
     
-    // Set unik untuk kira bilangan individu (elak kira dua kali untuk anugerah berganda)
     let uniqueRsvpSet = new Set();
 
     tableKeys.forEach(tableKey => {
@@ -500,10 +566,8 @@ function renderTableGrid() {
                 let slotTitle = `${escapeHtml(p.nama)} - Belum Hadir (Bil #${p.bil})`;
                 let rsvpBorder = '';
 
-                // Logik penonjolan RSVP dalam slot kerusi
                 if (p.attendance_status !== 'HADIR' && p.attendance_status !== 'TIDAK HADIR' && p.rsvp_status && p.rsvp_status !== 'BELUM SAH') {
                     if (p.rsvp_status === 'TIDAK HADIR') {
-                        // Kerusi ditandakan merah/kelabu pudar dengan sempadan silang secara bayangan
                         rsvpBorder = 'ring-2 ring-red-400 ring-offset-1';
                         slotColor = 'bg-red-50 border-red-400 text-red-700 opacity-80';
                         slotTitle = `${escapeHtml(p.nama)} - RSVP: TIDAK HADIR`;
@@ -521,11 +585,11 @@ function renderTableGrid() {
                         slotColor = 'bg-emerald-500 text-white border-emerald-600';
                         slotTitle = `${escapeHtml(p.nama)} - Hadir`;
                     }
-                    rsvpBorder = ''; // Padam ring RSVP bila dah hadir
+                    rsvpBorder = '';
                 } else if (p.attendance_status === 'TIDAK HADIR') {
                     slotColor = 'bg-rose-500 text-white border-rose-600';
                     slotTitle = `${escapeHtml(p.nama)} - Tidak Hadir`;
-                    rsvpBorder = ''; // Padam ring RSVP
+                    rsvpBorder = '';
                 }
 
                 slotsHtml += `
@@ -649,7 +713,6 @@ function openDetailModal(tableKey) {
                 statusBadge = '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-100 text-amber-800">Belum Hadir</span>';
             }
             
-            // Tambah penunjuk RSVP jika ada & highlight dalam modal
             let rsvpLabel = '';
             if (p.rsvp_status && p.rsvp_status !== 'BELUM SAH') {
                 if (p.rsvp_status === 'TIDAK HADIR' && p.attendance_status === 'BELUM HADIR') {
